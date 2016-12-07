@@ -1,5 +1,5 @@
 --
--- Tests for the ‘cue-sheet’ package.
+-- Render tests for the ‘cue-sheet’ package.
 --
 -- Copyright © 2016 Mark Karpov <markkarpov@openmailbox.org>
 --
@@ -30,7 +30,7 @@
 -- ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 -- POSSIBILITY OF SUCH DAMAGE.
 
-module Text.CueSheetSpec
+module Text.CueSheet.RenderSpec
   ( spec )
 where
 
