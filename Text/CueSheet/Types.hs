@@ -19,38 +19,52 @@ module Text.CueSheet.Types
   , CueFileType   (..)
   , CueTrack      (..)
   , CueTrackType  (..)
-  , CueTime       (..) )
+  , CueTime       (..)
+  , fromMmSsFf
+  , toMmSsFf
+  , showMmSsFf
+  , Mcn
+  , mkMcn
+  , unMcn
+  , CueText
+  , mkCueText
+  , unCueText
+  , Isrc
+  , mkIsrc
+  , unIsrc
+  , CueSheetException (..) )
 where
 
+import Control.Monad.Catch
+import Data.Char (isDigit, isAscii, isLetter)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Numeric.Natural
-
--- TODO Smart constructors for MCN, ISRC, and text fields that must be
--- between 1 and 80 chars long.
+import Text.Printf (printf)
+import qualified Data.Text as T
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
 data CueSheet = CueSheet
-  { cueCatalog    :: Maybe Text
-    -- ^ Disc's Media Catalog Number (MCN), must be 13 characters long.
+  { cueCatalog    :: Maybe Mcn
+    -- ^ Disc's Media Catalog Number (see 'Mcn').
   , cueCdTextFile :: Maybe String
     -- ^ Name of the file that contains the encoded CD-Text information for
     -- the disc.
-  , cueTitle      :: Maybe Text
-    -- ^ Title of entire disc. Must be from 1 to 80 characters long.
-  , cuePerformer  :: Maybe Text
-    -- ^ Performer of entire disc. Must be from 1 to 80 characters long.
-  , cueSongwriter :: Maybe Text
-    -- ^ Songwriter of entire disc. Must be from 1 to 80 characters long.
+  , cueTitle      :: Maybe CueText
+    -- ^ Title of entire disc.
+  , cuePerformer  :: Maybe CueText
+    -- ^ Performer of entire disc.
+  , cueSongwriter :: Maybe CueText
+    -- ^ Songwriter of entire disc.
   , cueFristTrackNumber :: Natural
-    -- ^ Number of first track. Typically 1, but may be greater than 1.
+    -- ^ Number of the first track. Typically 1, but may be greater than 1.
   , cueFiles      :: NonEmpty CueFile
     -- ^ Collection of files to be written.
-  } deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 -- | A file to be written. Single file can be divided into one or more
 -- tracks (see 'CueTrack').
@@ -59,7 +73,7 @@ data CueFile = CueFile
   { cueFileName   :: String            -- ^ Name of file.
   , cueFileType   :: CueFileType       -- ^ Type of file.
   , cueFileTracks :: NonEmpty CueTrack -- ^ Collection of tracks in the file.
-  } deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 -- | Enumeration of audio or file's data types.
 
@@ -93,16 +107,14 @@ data CueTrack = CueTrack
     -- recorders).
   , cueTrackType                 :: CueTrackType
     -- ^ Type datatype.
-  , cueTrackIsrc                 :: Maybe Text
-    -- ^ The track's International Standard Recording Code (ISRC). It must
-    -- be 12 characters in length. The first five characters are
-    -- alphanumeric, the last seven are numeric only.
-  , cueTrackTitle                :: Maybe Text
-    -- ^ Title of the track. Must be from 1 to 80 characters long.
-  , cueTrackPerformer            :: Maybe Text
-    -- ^ Performer of the track. Must be from 1 to 80 characters long.
-  , cueTrackSongwriter           :: Maybe Text
-    -- ^ Songwriter of the track. Must be from 1 to 80 characters long.
+  , cueTrackIsrc                 :: Maybe Isrc
+    -- ^ The track's International Standard Recording Code (ISRC).
+  , cueTrackTitle                :: Maybe CueText
+    -- ^ Title of the track.
+  , cueTrackPerformer            :: Maybe CueText
+    -- ^ Performer of the track.
+  , cueTrackSongwriter           :: Maybe CueText
+    -- ^ Songwriter of the track.
   , cueTrackPregap               :: Maybe CueTime
     -- ^ Track's pregap.
   , cueTrackPregapIndex          :: Maybe CueTime
@@ -113,7 +125,7 @@ data CueTrack = CueTrack
     -- only index that's stored in the disc's table of contents.
   , cueTrackPostgap              :: Maybe CueTime
     -- ^ Track's postgap.
-  } deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 -- | Track datatype.
 
@@ -134,5 +146,126 @@ data CueTrackType
 newtype CueTime = CueTime Natural
   deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
 
--- TODO Extract number of minutes, seconds, and frames from CueTrackIndex.
--- TODO Pretty print/show the stuff.
+-- | Construct 'CueTime' from minutes, seconds, and frames. There are 75
+-- frames per second. If number of seconds or frames is invalid,
+-- 'InvalidSeconds' or 'InvalidFrames' will be thrown.
+
+fromMmSsFf :: MonadThrow m
+  => Natural           -- ^ Number of minutes, no limit here
+  -> Natural           -- ^ Number of seconds, 0–59 inclusive
+  -> Natural           -- ^ Number of frames, 0–74 inclusive
+  -> m CueTime         -- ^ The result
+fromMmSsFf mm ss ff
+  | ss >= 60  = throwM (InvalidSeconds ss)
+  | ff >= 75  = throwM (InvalidFrames ff)
+  | otherwise =
+    let ss' = mm * 60 + ss
+        ff' = ss' * 75 + ff
+    in return (CueTime ff')
+
+-- | Get minutes, seconds, and frames from a 'CueTime' value.
+
+toMmSsFf :: CueTime -> (Natural, Natural, Natural)
+toMmSsFf (CueTime ff') = (mm,ss,ff)
+  where
+    (ss', ff) = ff' `quotRem` 75
+    (mm,  ss) = ss' `quotRem` 60
+
+showMmSsFf :: CueTime -> Text
+showMmSsFf x = T.pack (printf "%02d:%02d:%02d" mm ss ff)
+  where
+    (mm,ss,ff) = toMmSsFf x
+
+-- | Disc's Media Catalog Number (MCN), must be 13 characters long, all the
+-- characters must be numeric.
+
+newtype Mcn = Mcn Text
+  deriving (Eq, Ord, Data, Typeable, Generic)
+
+-- | Make a 'Mcn'. If the provided 'Text' value is not a valid MCN, throw
+-- the 'InvalidMcnException'.
+
+mkMcn :: MonadThrow m => Text -> m Mcn
+mkMcn x =
+  if T.length x == 13 && T.all isDigit x
+    then return (Mcn x)
+    else throwM (InvalidMcnException x)
+
+-- | Get 'Text' from 'Mcn'.
+
+unMcn :: Mcn -> Text
+unMcn (Mcn x) = x
+
+instance Show Mcn where
+  show = show . unMcn
+
+-- | A type for things like title or performer that should have length
+-- between 1 and 80 characters as per spec.
+
+newtype CueText = CueText Text
+  deriving (Eq, Ord, Data, Typeable, Generic)
+
+instance Show CueText where
+  show = show . unCueText
+
+-- | Make a 'CueText'. If the provided 'Text' value is not a valid CUE text,
+-- throw the 'InvalidCueText' exception.
+
+mkCueText :: MonadThrow m => Text -> m CueText
+mkCueText x =
+  if l >= 1 && l <= 80
+    then return (CueText x)
+    else throwM (InvalidCueText x)
+  where
+    l = T.length x
+
+-- | Get 'Text' from 'CueText'.
+
+unCueText :: CueText -> Text
+unCueText (CueText x) = x
+
+-- | The track's International Standard Recording Code (ISRC). It must be 12
+-- characters in length. The first five characters are alphanumeric, the
+-- last seven are numeric only.
+
+newtype Isrc = Isrc Text
+  deriving (Eq, Ord, Data, Typeable, Generic)
+
+instance Show Isrc where
+  show = show . unIsrc
+
+-- | Make a 'Isrc', if the provided 'Text' value is not a valid ISRC, throw
+-- the 'InvalidIsrc' exception.
+
+mkIsrc :: MonadThrow m => Text -> m Isrc
+mkIsrc x =
+  if T.length x == 12              &&
+     T.all isAlphaNum (T.take 5 x) &&
+     T.all isDigit (T.drop 5 x)
+    then return (Isrc x)
+    else throwM (InvalidIsrc x)
+  where
+    isAlphaNum a = isAscii a && (isDigit a || isLetter a)
+
+-- | Get 'Text' from 'Isrc'.
+
+unIsrc :: Isrc -> Text
+unIsrc (Isrc x) = x
+
+-- | Exception type for bad things that may happen while you use the
+-- library.
+
+data CueSheetException
+  = InvalidSeconds Natural
+    -- ^ The value is greater than 59 and thus is invalid for 'fromMmSsFf'.
+  | InvalidFrames Natural
+    -- ^ The value is greater than 74 and thus is invalid for 'fromMmSsFf'.
+  | InvalidMcnException Text
+    -- ^ Provided text wasn't a correct media catalog number (MCN).
+  | InvalidCueText Text
+    -- ^ Provided text wasn't a valid CUE text.
+  | InvalidIsrc Text
+    -- ^ Provided text wasn't a valid ISRC.
+  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
+
+instance Exception CueSheetException
