@@ -82,9 +82,9 @@ instance Arbitrary CueSheet where
     <*> arbitrary
     <*> arbitrary
 #if MIN_VERSION_QuickCheck(2,9,0)
-    <*> arbitrary
+    <*> scaleDown arbitrary
 #else
-    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+    <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
 #endif
 
 -- | A file to be written. Single file can be divided into one or more
@@ -104,9 +104,9 @@ instance Arbitrary CueFile where
     <$> arbitrary
     <*> arbitrary
 #if MIN_VERSION_QuickCheck(2,9,0)
-    <*> arbitrary
+    <*> scaleDown arbitrary
 #else
-    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+    <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
 #endif
 
 -- | Enumeration of audio or file's data types.
@@ -177,9 +177,9 @@ instance Arbitrary CueTrack where
     <*> arbitrary
     <*> arbitrary
 #if MIN_VERSION_QuickCheck(2,9,0)
-    <*> arbitrary
+    <*> scaleDown arbitrary
 #else
-    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+    <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
 #endif
     <*> arbitrary
 
@@ -363,3 +363,8 @@ isValidCueText x = l >= 1 && l <= 80
 
 isAlphaNum :: Char -> Bool
 isAlphaNum a = isAscii a && (isDigit a || isLetter a)
+
+-- | Scale down size of 'arbitrary'-generated stuff.
+
+scaleDown :: Gen a -> Gen a
+scaleDown = scale (`quot` 3)
