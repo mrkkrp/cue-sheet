@@ -78,7 +78,7 @@ renderCueSheet CueSheet {..} csrf =
         currentTrack <- get
         modify succ
         tell "  TRACK "
-        tellText (formatNum currentTrack)
+        tellText (formatNat currentTrack)
         tell " "
         tellText (renderTrackType cueTrackType)
         eol
@@ -117,7 +117,7 @@ renderCueSheet CueSheet {..} csrf =
           eol
         forM_ (NE.zip (NE.fromList [1..]) cueTrackIndices) $ \(n, index) -> do
           tell "    INDEX "
-          tellText (formatNum n)
+          tellText (formatNat n)
           tell " "
           tellText (showMmSsFf index)
           eol
@@ -129,8 +129,12 @@ renderCueSheet CueSheet {..} csrf =
 ----------------------------------------------------------------------------
 -- Helpers
 
-formatNum :: Natural -> Text
-formatNum = T.pack . printf "%02d"
+-- | Format a 'Natural' padding it with zeros to 2 digits.
+
+formatNat :: Natural -> Text
+formatNat = T.pack . printf "%02d"
+
+-- | Render file type as per the CUE specs.
 
 renderFileType :: CueFileType -> Text
 renderFileType Binary   = "BINARY"
@@ -138,6 +142,8 @@ renderFileType Motorola = "MOTOROLA"
 renderFileType Aiff     = "AIFF"
 renderFileType Wave     = "WAVE"
 renderFileType MP3      = "MP3"
+
+-- | Render track type as per the CUE specs.
 
 renderTrackType :: CueTrackType -> Text
 renderTrackType CueTrackAudio      = "AUDIO"
