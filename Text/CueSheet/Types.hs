@@ -250,7 +250,7 @@ instance Show Mcn where
   show = show . unMcn
 
 instance Arbitrary Mcn where
-  arbitrary = Mcn <$> ((T.pack <$> arbitrary) `suchThat` isValidMcn)
+  arbitrary = Mcn . T.pack <$> vectorOf 13 (arbitrary `suchThat` isDigit)
 
 -- | Make a 'Mcn'. If the provided 'Text' value is not a valid MCN, throw
 -- the 'InvalidMcnException'.
@@ -259,7 +259,7 @@ mkMcn :: MonadThrow m => Text -> m Mcn
 mkMcn x =
   if isValidMcn x
     then return (Mcn x)
-    else throwM (InvalidMcnException x)
+    else throwM (InvalidMcn x)
 
 -- | Get 'Text' from 'Mcn'.
 
@@ -332,7 +332,7 @@ data CueSheetException
     -- ^ The value is greater than 59 and thus is invalid for 'fromMmSsFf'.
   | InvalidFrames Natural
     -- ^ The value is greater than 74 and thus is invalid for 'fromMmSsFf'.
-  | InvalidMcnException Text
+  | InvalidMcn Text
     -- ^ Provided text wasn't a correct media catalog number (MCN).
   | InvalidCueText Text
     -- ^ Provided text wasn't a valid CUE text.
