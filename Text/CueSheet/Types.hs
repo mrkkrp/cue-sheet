@@ -47,8 +47,15 @@ import GHC.Generics
 import Numeric.Natural
 import Test.QuickCheck
 import Text.Printf (printf)
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
+
+#if !MIN_VERSION_QuickCheck(2,9,0)
+import qualified Data.List.NonEmpty as NE
+#endif
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
