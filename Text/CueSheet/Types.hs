@@ -53,10 +53,6 @@ import qualified Data.Text          as T
 import qualified Data.List.NonEmpty as NE
 #endif
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
-
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
 data CueSheet = CueSheet
