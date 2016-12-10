@@ -65,13 +65,13 @@ data CueSheet = CueSheet
   , cueCdTextFile :: !(Maybe String)
     -- ^ Name of the file that contains the encoded CD-Text information for
     -- the disc.
-  , cueTitle      :: !(Maybe CueText)
-    -- ^ Title of the entire disc.
   , cuePerformer  :: !(Maybe CueText)
     -- ^ Performer of the entire disc.
+  , cueTitle      :: !(Maybe CueText)
+    -- ^ Title of the entire disc.
   , cueSongwriter :: !(Maybe CueText)
     -- ^ Songwriter of the entire disc.
-  , cueFristTrackNumber :: !Natural
+  , cueFirstTrackNumber :: !Natural
     -- ^ Number of the first track. Typically 1, but may be greater than 1.
   , cueFiles      :: !(NonEmpty CueFile)
     -- ^ Collection of files to be written.
@@ -159,7 +159,7 @@ data CueTrack = CueTrack
     -- ^ Track's pregap.
   , cueTrackPregapIndex          :: !(Maybe CueTime)
     -- ^ Starting time of track pregap, a.k.a. INDEX 0.
-  , cueTrackIndicies             :: !(NonEmpty CueTime)
+  , cueTrackIndices              :: !(NonEmpty CueTime)
     -- ^ Collection of indices for the track starting with index 1. The
     -- index specifies the starting time of the track data. Index 1 is the
     -- only index that's stored in the disc's table of contents.
