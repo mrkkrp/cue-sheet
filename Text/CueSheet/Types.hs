@@ -10,6 +10,7 @@
 -- Types describing structure of a CUE sheet. You probably want to import
 -- "Text.CueSheet" instead.
 
+{-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
 
@@ -39,41 +40,71 @@ import Control.Monad.Catch
 import Data.Char (isDigit, isAscii, isLetter)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Numeric.Natural
+import Test.QuickCheck
 import Text.Printf (printf)
-import qualified Data.Text as T
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text          as T
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
 data CueSheet = CueSheet
-  { cueCatalog    :: Maybe Mcn
+  { cueCatalog    :: !(Maybe Mcn)
     -- ^ Disc's Media Catalog Number (see 'Mcn').
-  , cueCdTextFile :: Maybe String
+  , cueCdTextFile :: !(Maybe String)
     -- ^ Name of the file that contains the encoded CD-Text information for
     -- the disc.
-  , cueTitle      :: Maybe CueText
+  , cueTitle      :: !(Maybe CueText)
     -- ^ Title of entire disc.
-  , cuePerformer  :: Maybe CueText
+  , cuePerformer  :: !(Maybe CueText)
     -- ^ Performer of entire disc.
-  , cueSongwriter :: Maybe CueText
+  , cueSongwriter :: !(Maybe CueText)
     -- ^ Songwriter of entire disc.
-  , cueFristTrackNumber :: Natural
+  , cueFristTrackNumber :: !Natural
     -- ^ Number of the first track. Typically 1, but may be greater than 1.
-  , cueFiles      :: NonEmpty CueFile
+  , cueFiles      :: !(NonEmpty CueFile)
     -- ^ Collection of files to be written.
   } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+instance Arbitrary CueSheet where
+  arbitrary = CueSheet
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+#if MIN_VERSION_QuickCheck(2,9,0)
+    <*> arbitrary
+#else
+    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+#endif
 
 -- | A file to be written. Single file can be divided into one or more
 -- tracks (see 'CueTrack').
 
 data CueFile = CueFile
-  { cueFileName   :: String            -- ^ Name of file.
-  , cueFileType   :: CueFileType       -- ^ Type of file.
-  , cueFileTracks :: NonEmpty CueTrack -- ^ Collection of tracks in the file.
+  { cueFileName   :: !String
+    -- ^ Name of file.
+  , cueFileType   :: !CueFileType
+    -- ^ Type of file.
+  , cueFileTracks :: !(NonEmpty CueTrack)
+    -- ^ Collection of tracks in the file.
   } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+instance Arbitrary CueFile where
+  arbitrary = CueFile
+    <$> arbitrary
+    <*> arbitrary
+#if MIN_VERSION_QuickCheck(2,9,0)
+    <*> arbitrary
+#else
+    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+#endif
 
 -- | Enumeration of audio or file's data types.
 
@@ -92,40 +123,63 @@ data CueFileType
     -- ^ Audio MP3 file (44.1 kHz 16 bit stereo).
   deriving (Show, Read, Eq, Ord, Bounded, Enum, Data, Typeable, Generic)
 
+instance Arbitrary CueFileType where
+  arbitrary = elements [minBound..maxBound]
+
 -- | A track. Single track can have one or more indices (see
 -- 'CueTrackIndex').
 
 data CueTrack = CueTrack
-  { cueTrackDigitalCopyPermitted :: Bool
+  { cueTrackDigitalCopyPermitted :: !Bool
     -- ^ Flag: digital copy permitted.
-  , cueTrackFourChannelAudio     :: Bool
+  , cueTrackFourChannelAudio     :: !Bool
     -- ^ Flag: four channel audio.
-  , cueTrackPreemphasisEnabled   :: Bool
+  , cueTrackPreemphasisEnabled   :: !Bool
     -- ^ Flag: pre-emphasis enabled (audio track only).
-  , cueTrackSerialCopyManagement :: Bool
+  , cueTrackSerialCopyManagement :: !Bool
     -- ^ Flag: serial copy management system (not supported by all
     -- recorders).
-  , cueTrackType                 :: CueTrackType
+  , cueTrackType                 :: !CueTrackType
     -- ^ Type datatype.
-  , cueTrackIsrc                 :: Maybe Isrc
+  , cueTrackIsrc                 :: !(Maybe Isrc)
     -- ^ The track's International Standard Recording Code (ISRC).
-  , cueTrackTitle                :: Maybe CueText
+  , cueTrackTitle                :: !(Maybe CueText)
     -- ^ Title of the track.
-  , cueTrackPerformer            :: Maybe CueText
+  , cueTrackPerformer            :: !(Maybe CueText)
     -- ^ Performer of the track.
-  , cueTrackSongwriter           :: Maybe CueText
+  , cueTrackSongwriter           :: !(Maybe CueText)
     -- ^ Songwriter of the track.
-  , cueTrackPregap               :: Maybe CueTime
+  , cueTrackPregap               :: !(Maybe CueTime)
     -- ^ Track's pregap.
-  , cueTrackPregapIndex          :: Maybe CueTime
+  , cueTrackPregapIndex          :: !(Maybe CueTime)
     -- ^ Starting time of track pregap, a.k.a. INDEX 0.
-  , cueTrackIndicies             :: NonEmpty CueTime
+  , cueTrackIndicies             :: !(NonEmpty CueTime)
     -- ^ Collection of indices for the track starting with index 1. The
     -- index specifies the starting time of the track data. Index 1 is the
     -- only index that's stored in the disc's table of contents.
-  , cueTrackPostgap              :: Maybe CueTime
+  , cueTrackPostgap              :: !(Maybe CueTime)
     -- ^ Track's postgap.
   } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+instance Arbitrary CueTrack where
+  arbitrary = CueTrack
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+#if MIN_VERSION_QuickCheck(2,9,0)
+    <*> arbitrary
+#else
+    <*> (NE.fromList . getNonEmpty <$> arbitrary)
+#endif
+    <*> arbitrary
 
 -- | Track datatype.
 
@@ -140,11 +194,17 @@ data CueTrackType
   | CueTrackCdi2352    -- ^ CD-I Mode2 data.
   deriving (Show, Read, Eq, Ord, Bounded, Enum, Data, Typeable, Generic)
 
+instance Arbitrary CueTrackType where
+  arbitrary = elements [minBound..maxBound]
+
 -- | This datatype is used to indicate duration and position in time. It
 -- contains number of frames. There is 75 frames in one second.
 
 newtype CueTime = CueTime Natural
   deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+
+instance Arbitrary CueTime where
+  arbitrary = CueTime <$> arbitrary
 
 -- | Construct 'CueTime' from minutes, seconds, and frames. There are 75
 -- frames per second. If number of seconds or frames is invalid,
@@ -182,12 +242,18 @@ showMmSsFf x = T.pack (printf "%02d:%02d:%02d" mm ss ff)
 newtype Mcn = Mcn Text
   deriving (Eq, Ord, Data, Typeable, Generic)
 
+instance Show Mcn where
+  show = show . unMcn
+
+instance Arbitrary Mcn where
+  arbitrary = Mcn <$> ((T.pack <$> arbitrary) `suchThat` isValidMcn)
+
 -- | Make a 'Mcn'. If the provided 'Text' value is not a valid MCN, throw
 -- the 'InvalidMcnException'.
 
 mkMcn :: MonadThrow m => Text -> m Mcn
 mkMcn x =
-  if T.length x == 13 && T.all isDigit x
+  if isValidMcn x
     then return (Mcn x)
     else throwM (InvalidMcnException x)
 
@@ -195,9 +261,6 @@ mkMcn x =
 
 unMcn :: Mcn -> Text
 unMcn (Mcn x) = x
-
-instance Show Mcn where
-  show = show . unMcn
 
 -- | A type for things like title or performer that should have length
 -- between 1 and 80 characters as per spec.
@@ -208,16 +271,17 @@ newtype CueText = CueText Text
 instance Show CueText where
   show = show . unCueText
 
+instance Arbitrary CueText where
+  arbitrary = CueText <$> ((T.pack <$> arbitrary) `suchThat` isValidCueText)
+
 -- | Make a 'CueText'. If the provided 'Text' value is not a valid CUE text,
 -- throw the 'InvalidCueText' exception.
 
 mkCueText :: MonadThrow m => Text -> m CueText
 mkCueText x =
-  if l >= 1 && l <= 80
+  if isValidCueText x
     then return (CueText x)
     else throwM (InvalidCueText x)
-  where
-    l = T.length x
 
 -- | Get 'Text' from 'CueText'.
 
@@ -234,6 +298,12 @@ newtype Isrc = Isrc Text
 instance Show Isrc where
   show = show . unIsrc
 
+instance Arbitrary Isrc where
+  arbitrary = do
+    pre <- vectorOf 5 (arbitrary `suchThat` isAlphaNum)
+    post <- vectorOf 7 (arbitrary `suchThat` isDigit)
+    (return . Isrc . T.pack) (pre <> post)
+
 -- | Make a 'Isrc', if the provided 'Text' value is not a valid ISRC, throw
 -- the 'InvalidIsrc' exception.
 
@@ -244,8 +314,6 @@ mkIsrc x =
      T.all isDigit (T.drop 5 x)
     then return (Isrc x)
     else throwM (InvalidIsrc x)
-  where
-    isAlphaNum a = isAscii a && (isDigit a || isLetter a)
 
 -- | Get 'Text' from 'Isrc'.
 
@@ -269,3 +337,25 @@ data CueSheetException
   deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
 
 instance Exception CueSheetException
+
+----------------------------------------------------------------------------
+-- Helpers
+
+-- | Check if given 'Text' is a valid MCN.
+
+isValidMcn :: Text -> Bool
+isValidMcn x = T.length x == 13 && T.all isDigit x
+
+-- | Check if given 'Text' has valid length to be used in a CUE sheet as
+-- performer, title, etc.
+
+isValidCueText :: Text -> Bool
+isValidCueText x = l >= 1 && l <= 80
+  where
+    l = T.length x
+
+-- | A variant of 'Data.Char.IsAlphaNum' that only permits ASCII letter
+-- chars.
+
+isAlphaNum :: Char -> Bool
+isAlphaNum a = isAscii a && (isDigit a || isLetter a)
