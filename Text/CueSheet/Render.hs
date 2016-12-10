@@ -37,10 +37,10 @@ import qualified Data.Text.Encoding      as T
 -- 'CueSheet' will be UTF-8 encoded.
 
 renderCueSheet
-  :: CueSheet          -- ^ The 'CueSheet' to render
-  -> Bool              -- ^ Use CRLF sequence as “end of line” separator
+  :: Bool              -- ^ Use CRLF sequence as “end of line” separator
+  -> CueSheet          -- ^ The 'CueSheet' to render
   -> BL.ByteString     -- ^ The result
-renderCueSheet CueSheet {..} csrf =
+renderCueSheet csrf CueSheet {..} =
   BB.toLazyByteString . execWriter . flip evalStateT (max cueFirstTrackNumber 1) $ do
     let eol        = tell (if csrf then "\r\n" else "\n")
         tellText x =
