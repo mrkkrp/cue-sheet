@@ -59,11 +59,11 @@ data CueSheet = CueSheet
     -- ^ Name of the file that contains the encoded CD-Text information for
     -- the disc.
   , cueTitle      :: !(Maybe CueText)
-    -- ^ Title of entire disc.
+    -- ^ Title of the entire disc.
   , cuePerformer  :: !(Maybe CueText)
-    -- ^ Performer of entire disc.
+    -- ^ Performer of the entire disc.
   , cueSongwriter :: !(Maybe CueText)
-    -- ^ Songwriter of entire disc.
+    -- ^ Songwriter of the entire disc.
   , cueFristTrackNumber :: !Natural
     -- ^ Number of the first track. Typically 1, but may be greater than 1.
   , cueFiles      :: !(NonEmpty CueFile)
@@ -126,8 +126,7 @@ data CueFileType
 instance Arbitrary CueFileType where
   arbitrary = elements [minBound..maxBound]
 
--- | A track. Single track can have one or more indices (see
--- 'CueTrackIndex').
+-- | A track. Single track can have one or more indices.
 
 data CueTrack = CueTrack
   { cueTrackDigitalCopyPermitted :: !Bool
@@ -230,6 +229,8 @@ toMmSsFf (CueTime ff') = (mm,ss,ff)
   where
     (ss', ff) = ff' `quotRem` 75
     (mm,  ss) = ss' `quotRem` 60
+
+-- | Render representation of 'CueTime' in @mm:ss:ff@ format.
 
 showMmSsFf :: CueTime -> Text
 showMmSsFf x = T.pack (printf "%02d:%02d:%02d" mm ss ff)
