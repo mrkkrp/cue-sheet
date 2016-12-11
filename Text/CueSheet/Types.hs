@@ -267,7 +267,9 @@ unMcn :: Mcn -> Text
 unMcn (Mcn x) = x
 
 -- | A type for things like title or performer that should have length
--- between 1 and 80 characters as per spec.
+-- between 1 and 80 characters as per spec. We also demand that it does not
+-- contain @\"@ and newline characters, as it's not clear from the spec how
+-- to escape them properly.
 
 newtype CueText = CueText Text
   deriving (Eq, Ord, Data, Typeable, Generic)
@@ -354,9 +356,10 @@ isValidMcn x = T.length x == 13 && T.all isDigit x
 -- performer, title, etc.
 
 isValidCueText :: Text -> Bool
-isValidCueText x = l >= 1 && l <= 80
+isValidCueText x = l >= 1 && l <= 80 && T.all f x
   where
     l = T.length x
+    f c = c /= '\"' && c /= '\n'
 
 -- | A variant of 'Data.Char.IsAlphaNum' that only permits ASCII letter
 -- chars.

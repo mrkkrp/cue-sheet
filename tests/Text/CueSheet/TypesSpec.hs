@@ -82,11 +82,20 @@ spec =
         it "returns the CueText all right" $
           property $ \cueText ->
             mkCueText (unCueText cueText) `shouldReturn` cueText
-      context "when input value is invalid" $
-        it "throws the correct exception" $ do
-          mkCueText "" `shouldThrow` (== InvalidCueText "")
-          let tooLong = T.replicate 81 "a"
-          mkCueText tooLong `shouldThrow` (== InvalidCueText tooLong)
+      context "when input value is invalid" $ do
+        context "when it's too short" $
+          it "throws the correct exception" $
+            mkCueText "" `shouldThrow` (== InvalidCueText "")
+        context "when it's too long" $
+          it "throws the correct exception" $ do
+            let tooLong = T.replicate 81 "a"
+            mkCueText tooLong `shouldThrow` (== InvalidCueText tooLong)
+        context "when it contains the \" character" $
+          it "throws the correct exception" $
+            mkCueText "re\"re" `shouldThrow` (== InvalidCueText "re\"re")
+        context "when it contains the newline character" $
+          it "throws the correct exception" $
+            mkCueText "re\nre" `shouldThrow` (== InvalidCueText "re\nre")
     describe "mkIsrc" $ do
       context "when input value is a valid ISRC" $
         it "returns the ISRC all right" $
