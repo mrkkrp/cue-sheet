@@ -25,11 +25,11 @@ scroll to Appendix A (it's closest we get to a “specification”).
 
 ## Quick start
 
-Read the Haddocks. In short, you parse a `CueSheet` with `parseCueSheet`
-function and render a `CueSheet` with `renderCueSheet` function, pretty
-straightforward, eh? Of course you still can construct a `CueSheet`
-manually. The data types are defined in such a way that incorrect CUE sheets
-are impossible to represent.
+[Read the Haddocks](https://hackage.haskell.org/package/cue-sheet). In
+short, you parse a `CueSheet` with `parseCueSheet` function and render a
+`CueSheet` with `renderCueSheet` function, pretty straightforward, eh? Of
+course you still can construct a `CueSheet` manually. The data types are
+defined in such a way that incorrect CUE sheets are impossible to represent.
 
 ## License
 
