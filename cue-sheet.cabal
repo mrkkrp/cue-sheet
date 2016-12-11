@@ -45,6 +45,7 @@ build-type:           Simple
 description:          Support for construction, rendering, and parsing of CUE sheets.
 extra-doc-files:      CHANGELOG.md
                     , README.md
+data-files:           cue-sheet-samples/*.cue
 
 source-repository head
   type:               git
