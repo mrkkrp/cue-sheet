@@ -45,9 +45,10 @@ renderCueSheet csrf CueSheet {..} =
     let eol        = tell (if csrf then "\r\n" else "\n")
         tellText x =
           let raw = T.encodeUtf8 x
-          in tell . BB.byteString $ if 32 `B.elem` raw
-             then "\"" <> raw <> "\""
-             else raw
+          in tell . BB.byteString $
+             if 32 `B.elem` raw || B.null raw
+               then "\"" <> raw <> "\""
+               else raw
     forM_ cueCatalog $ \x -> do
       tell "CATALOG "
       tellText (unMcn x)
