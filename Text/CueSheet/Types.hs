@@ -76,7 +76,7 @@ data CueSheet = CueSheet
 instance Arbitrary CueSheet where
   arbitrary = CueSheet
     <$> arbitrary
-    <*> arbitrary
+    <*> oneof [pure Nothing, Just <$> filepath]
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
@@ -101,7 +101,7 @@ data CueFile = CueFile
 
 instance Arbitrary CueFile where
   arbitrary = CueFile
-    <$> arbitrary
+    <$> filepath
     <*> arbitrary
 #if MIN_VERSION_QuickCheck(2,9,0)
     <*> scaleDown arbitrary
@@ -371,3 +371,10 @@ isAlphaNum a = isAscii a && (isDigit a || isLetter a)
 
 scaleDown :: Gen a -> Gen a
 scaleDown = scale (`quot` 3)
+
+-- | File path generator.
+
+filepath :: Gen FilePath
+filepath = listOf (arbitrary `suchThat` windowsLikesIt)
+  where
+    windowsLikesIt = (`notElem` "?%*:<>#|\"\\\n")
