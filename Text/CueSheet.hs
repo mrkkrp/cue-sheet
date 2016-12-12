@@ -37,6 +37,8 @@ module Text.CueSheet
   , unIsrc
   , CueSheetException (..)
     -- * Parsing
+  , Eec (..)
+  , CueParserFailure (..)
   , parseCueSheet
     -- * Rendering
   , renderCueSheet )
