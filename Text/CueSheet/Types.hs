@@ -58,7 +58,7 @@ import qualified Data.List.NonEmpty as NE
 data CueSheet = CueSheet
   { cueCatalog    :: !(Maybe Mcn)
     -- ^ Disc's Media Catalog Number (see 'Mcn').
-  , cueCdTextFile :: !(Maybe String)
+  , cueCdTextFile :: !(Maybe FilePath)
     -- ^ Name of the file that contains the encoded CD-Text information for
     -- the disc.
   , cuePerformer  :: !(Maybe CueText)
@@ -91,7 +91,7 @@ instance Arbitrary CueSheet where
 -- tracks (see 'CueTrack').
 
 data CueFile = CueFile
-  { cueFileName   :: !String
+  { cueFileName   :: !FilePath
     -- ^ Name of file.
   , cueFileType   :: !CueFileType
     -- ^ Type of file.
