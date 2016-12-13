@@ -145,9 +145,10 @@ parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
 -- 'Context'.
 
 pCueSheet :: Parser ()
-pCueSheet =
+pCueSheet = do
   void (many pHeaderItem)
   -- TODO FILE declarations and everything inside
+  eof
 
 pHeaderItem :: Parser ()
 pHeaderItem = choice
@@ -160,13 +161,13 @@ pHeaderItem = choice
 pCatalog :: Parser ()
 pCatalog = do
   already <- gets (isJust . cueCatalog . contextCueSheet)
-  let f x =
+  let f x' = let x = T.pack x' in
         if already
           then Left CueParserDuplicateCatalog
           else case mkMcn x of
                  Nothing -> Left (CueParserInvalidCatalog x)
                  Just mcn -> Right mcn
-  mcn <- withCheck f (T.pack <$> labelledLit "CATALOG")
+  mcn <- labelledLit f "CATALOG"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueCatalog = Just mcn } }
 
@@ -177,53 +178,53 @@ pCdTextFile = do
         if already
           then Left CueParserDuplicateCdTextFile
           else Right x
-  cdTextFile <- withCheck f (labelledLit "CDTEXTFILE")
+  cdTextFile <- labelledLit f "CDTEXTFILE"
   modify $ \x -> x { contextCueSheet = (contextCueSheet x)
     { cueCdTextFile = Just cdTextFile } }
 
 pPerformer :: Parser ()
 pPerformer = do
   already <- gets (isJust . cuePerformer . contextCueSheet)
-  let f x =
+  let f x' = let x = T.pack x' in
         if already
           then Left CueParserDuplicatePerformer
           else case mkCueText x of
                  Nothing -> Left (CueParserInvalidCueText x)
                  Just txt -> Right txt
-  performer <- withCheck f (T.pack <$> labelledLit "PERFORMER")
+  performer <- labelledLit f "PERFORMER"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cuePerformer = Just performer } }
 
 pTitle :: Parser ()
 pTitle = do
   already <- gets (isJust . cueTitle . contextCueSheet)
-  let f x =
+  let f x' = let x = T.pack x' in
         if already
           then Left CueParserDuplicateTitle
           else case mkCueText x of
                  Nothing -> Left (CueParserInvalidCueText x)
                  Just txt -> Right txt
-  title <- withCheck f (T.pack <$> labelledLit "TITLE")
+  title <- labelledLit f "TITLE"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueTitle = Just title } }
 
 pSongwriter :: Parser ()
 pSongwriter = do
   already <- gets (isJust . cueTitle . contextCueSheet)
-  let f x =
+  let f x' = let x = T.pack x' in
         if already
           then Left CueParserDuplicateSongwriter
           else case mkCueText x of
                  Nothing -> Left (CueParserInvalidCueText x)
                  Just txt -> Right txt
-  songwriter <- withCheck f (T.pack <$> labelledLit "SONGWRITER")
+  songwriter <- labelledLit f "SONGWRITER"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueSongwriter = Just songwriter } }
 
-labelledLit :: String -> Parser String
-labelledLit command = do
+labelledLit :: (String -> Either CueParserFailure a) -> String -> Parser a
+labelledLit f command = do
   void (symbol command)
-  r <- lexeme stringLit
+  r <- withCheck f (lexeme stringLit)
   void eol
   return r
 
@@ -272,7 +273,7 @@ stringLit = quoted <|> unquoted
 -- | Case-insensitive symbol parser.
 
 symbol :: String -> Parser String
-symbol s = L.symbol' sc s <* notFollowedBy alphaNumChar
+symbol s = string' s <* notFollowedBy alphaNumChar <* sc
 
 -- | A wrapper for lexemes.
 
