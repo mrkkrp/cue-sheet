@@ -21,25 +21,30 @@ module Text.CueSheet.Parser
   , parseCueSheet )
 where
 
+import Control.Applicative
 import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe (isJust)
+import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Numeric.Natural
 import Text.CueSheet.Types
 import Text.Megaparsec
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Set             as E
+import qualified Data.ByteString.Lazy  as BL
+import qualified Data.Set              as E
+import qualified Data.Text             as T
+import qualified Text.Megaparsec.Lexer as L
 
 ----------------------------------------------------------------------------
 -- Types
 
 -- | Extended error component with support for storing number of track
--- declaration in which a parsing error has occured.
+-- declaration in which a parsing error has occurred.
 
 data Eec = Eec (Maybe Natural) (Maybe CueParserFailure)
-  deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ErrorComponent Eec where
   representFail                  =
@@ -58,7 +63,14 @@ instance ShowErrorComponent Eec where
 data CueParserFailure
   = CueParserFail String
   | CueParserIndentation Ordering Pos Pos
-  deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  | CueParserInvalidCatalog Text
+  | CueParserDuplicateCatalog
+  | CueParserDuplicateCdTextFile
+  | CueParserDuplicatePerformer
+  | CueParserDuplicateTitle
+  | CueParserDuplicateSongwriter
+  | CueParserInvalidCueText Text
+  deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ShowErrorComponent CueParserFailure where
   showErrorComponent = \case
@@ -66,6 +78,20 @@ instance ShowErrorComponent CueParserFailure where
       showErrorComponent (DecFail msg)
     CueParserIndentation ord p0 p1 ->
       showErrorComponent (DecIndentation ord p0 p1)
+    CueParserInvalidCatalog txt ->
+      "the value \"" ++ T.unpack txt ++ "\" is not a valid Media Catalog Number"
+    CueParserDuplicateCatalog ->
+      "a CUE sheet cannot have two CATALOG declarations"
+    CueParserDuplicateCdTextFile ->
+      "a CUE sheet cannot have two CDTEXTFILE declarations"
+    CueParserDuplicatePerformer ->
+      "a CUE sheet cannot have two top-level PERFORMER declarations"
+    CueParserDuplicateTitle ->
+      "a CUE sheet cannot have two top-level TITLE declarations"
+    CueParserDuplicateSongwriter ->
+      "a CUE sheet cannot have two top-level SONGWRITER declarations"
+    CueParserInvalidCueText txt ->
+      "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
 
 -- | Type of parser we use here, it's not public.
 
@@ -119,7 +145,87 @@ parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
 -- 'Context'.
 
 pCueSheet :: Parser ()
-pCueSheet = undefined -- TODO
+pCueSheet =
+  void (many pHeaderItem)
+  -- TODO FILE declarations and everything inside
+
+pHeaderItem :: Parser ()
+pHeaderItem = choice
+  [ pCatalog
+  , pCdTextFile
+  , pPerformer
+  , pTitle
+  , pSongwriter ]
+
+pCatalog :: Parser ()
+pCatalog = do
+  already <- gets (isJust . cueCatalog . contextCueSheet)
+  let f x =
+        if already
+          then Left CueParserDuplicateCatalog
+          else case mkMcn x of
+                 Nothing -> Left (CueParserInvalidCatalog x)
+                 Just mcn -> Right mcn
+  mcn <- withCheck f (T.pack <$> labelledLit "CATALOG")
+  modify $ \x -> x { contextCueSheet =
+    (contextCueSheet x) { cueCatalog = Just mcn } }
+
+pCdTextFile :: Parser ()
+pCdTextFile = do
+  already <- gets (isJust . cueCdTextFile . contextCueSheet)
+  let f x =
+        if already
+          then Left CueParserDuplicateCdTextFile
+          else Right x
+  cdTextFile <- withCheck f (labelledLit "CDTEXTFILE")
+  modify $ \x -> x { contextCueSheet = (contextCueSheet x)
+    { cueCdTextFile = Just cdTextFile } }
+
+pPerformer :: Parser ()
+pPerformer = do
+  already <- gets (isJust . cuePerformer . contextCueSheet)
+  let f x =
+        if already
+          then Left CueParserDuplicatePerformer
+          else case mkCueText x of
+                 Nothing -> Left (CueParserInvalidCueText x)
+                 Just txt -> Right txt
+  performer <- withCheck f (T.pack <$> labelledLit "PERFORMER")
+  modify $ \x -> x { contextCueSheet =
+    (contextCueSheet x) { cuePerformer = Just performer } }
+
+pTitle :: Parser ()
+pTitle = do
+  already <- gets (isJust . cueTitle . contextCueSheet)
+  let f x =
+        if already
+          then Left CueParserDuplicateTitle
+          else case mkCueText x of
+                 Nothing -> Left (CueParserInvalidCueText x)
+                 Just txt -> Right txt
+  title <- withCheck f (T.pack <$> labelledLit "TITLE")
+  modify $ \x -> x { contextCueSheet =
+    (contextCueSheet x) { cueTitle = Just title } }
+
+pSongwriter :: Parser ()
+pSongwriter = do
+  already <- gets (isJust . cueTitle . contextCueSheet)
+  let f x =
+        if already
+          then Left CueParserDuplicateSongwriter
+          else case mkCueText x of
+                 Nothing -> Left (CueParserInvalidCueText x)
+                 Just txt -> Right txt
+  songwriter <- withCheck f (T.pack <$> labelledLit "SONGWRITER")
+  modify $ \x -> x { contextCueSheet =
+    (contextCueSheet x) { cueSongwriter = Just songwriter } }
+
+labelledLit :: String -> Parser String
+labelledLit command = do
+  void (symbol command)
+  r <- lexeme stringLit
+  void eol
+  return r
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -130,7 +236,7 @@ pCueSheet = undefined -- TODO
 -- has incorrect format, that is just reported and no additional check
 -- happens.
 
-withCheck :: (a -> Either CueParserFailure a) -> Parser a -> Parser a
+withCheck :: (a -> Either CueParserFailure b) -> Parser a -> Parser b
 withCheck check p = do
   r <- lookAhead p
   case check r of
@@ -154,6 +260,29 @@ inTrack n m = do
         where
           f (Eec mn x) = Eec (mn <|> Just n) x
     Right x -> return x
+
+-- | String literal with support for quotation.
+
+stringLit :: Parser String
+stringLit = quoted <|> unquoted
+  where
+    quoted   = char '\"' *> manyTill (noneOf "\n") (char '\"')
+    unquoted = many (noneOf "\n\t ")
+
+-- | Case-insensitive symbol parser.
+
+symbol :: String -> Parser String
+symbol s = L.symbol' sc s <* notFollowedBy alphaNumChar
+
+-- | A wrapper for lexemes.
+
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
+
+-- | Space consumer (does not eat newlines).
+
+sc :: Parser ()
+sc = L.space (void $ oneOf "\t ") empty empty
 
 ----------------------------------------------------------------------------
 -- Dummies
