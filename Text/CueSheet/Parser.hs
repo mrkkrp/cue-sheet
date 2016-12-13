@@ -13,6 +13,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
 
 module Text.CueSheet.Parser
@@ -33,6 +34,7 @@ import Numeric.Natural
 import Text.CueSheet.Types
 import Text.Megaparsec
 import qualified Data.ByteString.Lazy  as BL
+import qualified Data.List.NonEmpty    as NE
 import qualified Data.Set              as E
 import qualified Data.Text             as T
 import qualified Text.Megaparsec.Lexer as L
@@ -69,6 +71,9 @@ data CueParserFailure
   | CueParserDuplicatePerformer
   | CueParserDuplicateTitle
   | CueParserDuplicateSongwriter
+  | CueParserUnknownFileType Text
+  | CueParserTrackOutOfOrder
+  | CueParserUnknownTrackType Text
   | CueParserInvalidCueText Text
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
@@ -90,6 +95,12 @@ instance ShowErrorComponent CueParserFailure where
       "a CUE sheet cannot have two top-level TITLE declarations"
     CueParserDuplicateSongwriter ->
       "a CUE sheet cannot have two top-level SONGWRITER declarations"
+    CueParserUnknownFileType txt ->
+      "\"" ++ T.unpack txt ++ "\" is not a known file type"
+    CueParserTrackOutOfOrder ->
+      "this track appears out of order"
+    CueParserUnknownTrackType txt ->
+      "\"" ++ T.unpack txt ++ "\" is not a known track data type"
     CueParserInvalidCueText txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
 
@@ -146,8 +157,13 @@ parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
 
 pCueSheet :: Parser ()
 pCueSheet = do
+  scn
   void (many pHeaderItem)
-  -- TODO FILE declarations and everything inside
+  void (some pFile)
+  -- NOTE Lens would help here, but let's keep this vanilla.
+  modify $ \x -> x { contextCueSheet =
+    (contextCueSheet x)
+      { cueFiles = (NE.fromList . reverse . contextFiles) x } }
   eof
 
 pHeaderItem :: Parser ()
@@ -156,7 +172,8 @@ pHeaderItem = choice
   , pCdTextFile
   , pPerformer
   , pTitle
-  , pSongwriter ]
+  , pSongwriter
+  , pRem ]
 
 pCatalog :: Parser ()
 pCatalog = do
@@ -221,12 +238,92 @@ pSongwriter = do
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueSongwriter = Just songwriter } }
 
-labelledLit :: (String -> Either CueParserFailure a) -> String -> Parser a
-labelledLit f command = do
-  void (symbol command)
-  r <- withCheck f (lexeme stringLit)
-  void eol
-  return r
+pRem :: Parser ()
+pRem = do
+  void (symbol "REM")
+  manyTill anyChar eol *> scn
+
+pFile :: Parser ()
+pFile = do
+  void (symbol "FILE")
+  filename <- lexeme stringLit
+  let f x' = let x = T.pack x' in
+        case T.toUpper x of
+          "BINARY"   -> Right Binary
+          "MOTOROLA" -> Right Motorola
+          "AIFF"     -> Right Aiff
+          "WAVE"     -> Right Wave
+          "MP3"      -> Right MP3
+          _          -> Left (CueParserUnknownFileType x)
+  filetype <- withCheck f (lexeme stringLit) <* eol <* scn
+  void (some pTrack)
+  tracks <- gets contextTracks
+  let newFile = CueFile
+        { cueFileName   = filename
+        , cueFileType   = filetype
+        , cueFileTracks = NE.fromList tracks }
+  modify $ \x -> x
+    { contextFiles  = newFile : contextFiles x
+    , contextTracks = [] }
+
+pTrack :: Parser ()
+pTrack = do
+  void (symbol "TRACK")
+  firstTrack  <- gets (null . contextTracks)
+  trackOffset <- gets (cueFirstTrackNumber . contextCueSheet)
+  trackCount  <- gets contextTrackCount
+  let f x =
+        if firstTrack || x == trackOffset + trackCount + 1
+          then Right x
+          else Left CueParserTrackOutOfOrder
+  n <- withCheck f (fromIntegral <$> lexeme L.integer)
+  let g x' = let x = T.pack x' in
+        case T.toUpper x of
+          "AUDIO"      -> Right CueTrackAudio
+          "CDG"        -> Right CueTrackCdg
+          "MODE1/2048" -> Right CueTrackMode1_2048
+          "MODE1/2352" -> Right CueTrackMode1_2352
+          "MODE2/2336" -> Right CueTrackMode2_2336
+          "MODE2/2352" -> Right CueTrackMode2_2352
+          "CDI/2336"   -> Right CueTrackCdi2336
+          "CDI/2352"   -> Right CueTrackCdi2352
+          _            -> Left (CueParserUnknownTrackType x)
+  trackType <- withCheck g (lexeme stringLit) <* eol <* scn
+  let newTrack = dummyTrack { cueTrackType = trackType }
+  modify $ \x -> x
+    { contextTracks     = newTrack : contextTracks x
+    , contextTrackCount = trackCount + 1
+    , contextCueSheet   = let old = contextCueSheet x in
+        if firstTrack
+          then old { cueFirstTrackNumber = n }
+          else old }
+  inTrack n $ do
+    void (many pTrackHeaderItem)
+    -- TODO optional index 0
+    -- TODO indices
+    void (optional pPostgap)
+
+pTrackHeaderItem :: Parser ()
+pTrackHeaderItem = choice
+  [ pFlags
+  , pIsrc
+  , pPerformer
+  , pTitle
+  , pSongwriter
+  , pRem
+  , pPregap ]
+
+pFlags :: Parser ()
+pFlags = undefined -- TODO
+
+pIsrc :: Parser ()
+pIsrc = undefined -- TODO
+
+pPregap :: Parser ()
+pPregap = undefined -- TODO
+
+pPostgap :: Parser ()
+pPostgap = undefined -- TODO
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -262,13 +359,20 @@ inTrack n m = do
           f (Eec mn x) = Eec (mn <|> Just n) x
     Right x -> return x
 
+-- | A labelled literal (a helper for common case).
+
+labelledLit :: (String -> Either CueParserFailure a) -> String -> Parser a
+labelledLit f command = do
+  void (symbol command)
+  withCheck f (lexeme stringLit) <* eol <* scn
+
 -- | String literal with support for quotation.
 
 stringLit :: Parser String
 stringLit = quoted <|> unquoted
   where
-    quoted   = char '\"' *> manyTill (noneOf "\n") (char '\"')
-    unquoted = many (noneOf "\n\t ")
+    quoted   = char '\"' *> manyTill (noneOf ("\n" :: String)) (char '\"')
+    unquoted = many (noneOf ("\n\t " :: String))
 
 -- | Case-insensitive symbol parser.
 
@@ -280,10 +384,15 @@ symbol s = string' s <* notFollowedBy alphaNumChar <* sc
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
+-- | Space consumer (eats newlines).
+
+scn :: Parser ()
+scn = L.space (void spaceChar) empty empty
+
 -- | Space consumer (does not eat newlines).
 
 sc :: Parser ()
-sc = L.space (void $ oneOf "\t ") empty empty
+sc = L.space (void $ oneOf ("\t " :: String)) empty empty
 
 ----------------------------------------------------------------------------
 -- Dummies
