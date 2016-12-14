@@ -75,6 +75,14 @@ data CueParserFailure
   | CueParserDuplicateSongwriter
   | CueParserTrackOutOfOrder
   | CueParserDuplicateTrackFlags
+  | CueParserDuplicateTrackIsrc
+  | CueParserInvalidTrackIsrc Text
+  | CueParserDuplicateTrackPerformer
+  | CueParserDuplicateTrackTitle
+  | CueParserDuplicateTrackSongwriter
+  | CueParserDuplicateTrackPregap
+  | CueParserDuplicateTrackPostgap
+  | CueParserInvalidTime Text
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ShowErrorComponent CueParserFailure where
@@ -88,19 +96,35 @@ instance ShowErrorComponent CueParserFailure where
     CueParserInvalidCueText txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
     CueParserDuplicateCatalog ->
-      "a CUE sheet cannot have two CATALOG declarations"
+      "a CUE sheet can have only one CATALOG declaration"
     CueParserDuplicateCdTextFile ->
-      "a CUE sheet cannot have two CDTEXTFILE declarations"
+      "a CUE sheet can have only one CDTEXTFILE declaration"
     CueParserDuplicatePerformer ->
-      "a CUE sheet cannot have two top-level PERFORMER declarations"
+      "a CUE sheet can have only one top-level PERFORMER declaration"
     CueParserDuplicateTitle ->
-      "a CUE sheet cannot have two top-level TITLE declarations"
+      "a CUE sheet can have only one top-level TITLE declaration"
     CueParserDuplicateSongwriter ->
-      "a CUE sheet cannot have two top-level SONGWRITER declarations"
+      "a CUE sheet can have only one top-level SONGWRITER declaration"
     CueParserTrackOutOfOrder ->
       "this track appears out of order"
     CueParserDuplicateTrackFlags ->
       "a track can have only one FLAGS declaration"
+    CueParserDuplicateTrackIsrc ->
+      "a track can have only one ISRC declaration"
+    CueParserInvalidTrackIsrc txt ->
+      "\"" ++ T.unpack txt ++ "\" is not a valid ISRC"
+    CueParserDuplicateTrackPerformer ->
+      "a track can have only one PERFORMER declaration"
+    CueParserDuplicateTrackTitle ->
+      "a track can have only one TITLE declaration"
+    CueParserDuplicateTrackSongwriter ->
+      "a track can have only one SONGWRITER declaration"
+    CueParserDuplicateTrackPregap ->
+      "a track can have only one PREGAP declaration"
+    CueParserDuplicateTrackPostgap ->
+      "a track can have only one POSTGAP declaration"
+    CueParserInvalidTime txt ->
+      "\"" ++ T.unpack txt ++ "\" is not a valid duration or time position"
 
 -- | Type of parser we use here, it's not public.
 
@@ -322,26 +346,64 @@ pFlag = do
     , PRE    <$ symbol "PRE"
     , SCMS   <$ symbol "SCMS" ]
   modify $ \x -> x
-    { contextTracks =
-        let (a:as) = contextTracks x
-            a'     = case flag of
-             DCP    -> a { cueTrackDigitalCopyPermitted = True }
-             FourCH -> a { cueTrackFourChannelAudio     = True }
-             PRE    -> a { cueTrackPreemphasisEnabled   = True }
-             SCMS   -> a { cueTrackSerialCopyManagement = True }
-        in a':as }
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        case flag of
+          DCP    -> t { cueTrackDigitalCopyPermitted = True }
+          FourCH -> t { cueTrackFourChannelAudio     = True }
+          PRE    -> t { cueTrackPreemphasisEnabled   = True }
+          SCMS   -> t { cueTrackSerialCopyManagement = True } }
 
 pIsrc :: Parser ()
-pIsrc = undefined -- TODO
+pIsrc = do
+  already <- bool Nothing (Just CueParserDuplicateTrackIsrc)
+    <$> gets (isJust . cueTrackIsrc . head . contextTracks)
+  let f x' = let x = T.pack x' in
+        case mkIsrc x of
+          Nothing -> Left (CueParserInvalidTrackIsrc x)
+          Just isrc -> Right isrc
+  isrc <- labelledLit already f "ISRC"
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackIsrc = Just isrc } }
 
 pTrackPerformer :: Parser ()
-pTrackPerformer = undefined -- TODO
+pTrackPerformer = do
+  already <- bool Nothing (Just CueParserDuplicateTrackPerformer)
+    <$> gets (isJust . cueTrackPerformer . head . contextTracks)
+  let f x' = let x = T.pack x' in
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  performer <- labelledLit already f "PERFORMER"
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackPerformer = Just performer } }
 
 pTrackTitle :: Parser ()
-pTrackTitle = undefined -- TODO
+pTrackTitle = do
+  already <- bool Nothing (Just CueParserDuplicateTrackTitle)
+    <$> gets (isJust . cueTrackTitle . head . contextTracks)
+  let f x' = let x = T.pack x' in
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  title <- labelledLit already f "TITLE"
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackTitle = Just title } }
 
 pTrackSongwriter :: Parser ()
-pTrackSongwriter = undefined -- TODO
+pTrackSongwriter = do
+  already <- bool Nothing (Just CueParserDuplicateTrackSongwriter)
+    <$> gets (isJust . cueTrackSongwriter . head . contextTracks)
+  let f x' = let x = T.pack x' in
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  songwriter <- labelledLit already f "SONGWRITER"
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackSongwriter = Just songwriter } }
 
 pPregap :: Parser ()
 pPregap = undefined -- TODO
@@ -434,6 +496,12 @@ seenFlags CueTrack {..} = or
   , cueTrackFourChannelAudio
   , cueTrackPreemphasisEnabled
   , cueTrackSerialCopyManagement ]
+
+-- | Apply given function to the first element of the list.
+
+changingFirstOf :: [a] -> (a -> a) -> [a]
+changingFirstOf [] _ = []
+changingFirstOf (x:xs) f = f x : xs
 
 ----------------------------------------------------------------------------
 -- Dummies
