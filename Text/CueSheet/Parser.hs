@@ -24,6 +24,7 @@ where
 
 import Control.Applicative
 import Control.Monad.State.Strict
+import Data.Bool (bool)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust)
@@ -66,15 +67,14 @@ data CueParserFailure
   = CueParserFail String
   | CueParserIndentation Ordering Pos Pos
   | CueParserInvalidCatalog Text
+  | CueParserInvalidCueText Text
   | CueParserDuplicateCatalog
   | CueParserDuplicateCdTextFile
   | CueParserDuplicatePerformer
   | CueParserDuplicateTitle
   | CueParserDuplicateSongwriter
-  | CueParserUnknownFileType Text
   | CueParserTrackOutOfOrder
-  | CueParserUnknownTrackType Text
-  | CueParserInvalidCueText Text
+  | CueParserDuplicateTrackFlags
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ShowErrorComponent CueParserFailure where
@@ -85,6 +85,8 @@ instance ShowErrorComponent CueParserFailure where
       showErrorComponent (DecIndentation ord p0 p1)
     CueParserInvalidCatalog txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid Media Catalog Number"
+    CueParserInvalidCueText txt ->
+      "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
     CueParserDuplicateCatalog ->
       "a CUE sheet cannot have two CATALOG declarations"
     CueParserDuplicateCdTextFile ->
@@ -95,14 +97,10 @@ instance ShowErrorComponent CueParserFailure where
       "a CUE sheet cannot have two top-level TITLE declarations"
     CueParserDuplicateSongwriter ->
       "a CUE sheet cannot have two top-level SONGWRITER declarations"
-    CueParserUnknownFileType txt ->
-      "\"" ++ T.unpack txt ++ "\" is not a known file type"
     CueParserTrackOutOfOrder ->
       "this track appears out of order"
-    CueParserUnknownTrackType txt ->
-      "\"" ++ T.unpack txt ++ "\" is not a known track data type"
-    CueParserInvalidCueText txt ->
-      "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
+    CueParserDuplicateTrackFlags ->
+      "a track can have only one FLAGS declaration"
 
 -- | Type of parser we use here, it's not public.
 
@@ -177,64 +175,57 @@ pHeaderItem = choice
 
 pCatalog :: Parser ()
 pCatalog = do
-  already <- gets (isJust . cueCatalog . contextCueSheet)
+  already <- bool Nothing (Just CueParserDuplicateCatalog)
+    <$> gets (isJust . cueCatalog . contextCueSheet)
   let f x' = let x = T.pack x' in
-        if already
-          then Left CueParserDuplicateCatalog
-          else case mkMcn x of
-                 Nothing -> Left (CueParserInvalidCatalog x)
-                 Just mcn -> Right mcn
-  mcn <- labelledLit f "CATALOG"
+        case mkMcn x of
+          Nothing -> Left (CueParserInvalidCatalog x)
+          Just mcn -> Right mcn
+  mcn <- labelledLit already f "CATALOG"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueCatalog = Just mcn } }
 
 pCdTextFile :: Parser ()
 pCdTextFile = do
-  already <- gets (isJust . cueCdTextFile . contextCueSheet)
-  let f x =
-        if already
-          then Left CueParserDuplicateCdTextFile
-          else Right x
-  cdTextFile <- labelledLit f "CDTEXTFILE"
+  already <- bool Nothing (Just CueParserDuplicateCdTextFile)
+    <$> gets (isJust . cueCdTextFile . contextCueSheet)
+  cdTextFile <- labelledLit already Right "CDTEXTFILE"
   modify $ \x -> x { contextCueSheet = (contextCueSheet x)
     { cueCdTextFile = Just cdTextFile } }
 
 pPerformer :: Parser ()
 pPerformer = do
-  already <- gets (isJust . cuePerformer . contextCueSheet)
+  already <- bool Nothing (Just CueParserDuplicatePerformer)
+    <$> gets (isJust . cuePerformer . contextCueSheet)
   let f x' = let x = T.pack x' in
-        if already
-          then Left CueParserDuplicatePerformer
-          else case mkCueText x of
-                 Nothing -> Left (CueParserInvalidCueText x)
-                 Just txt -> Right txt
-  performer <- labelledLit f "PERFORMER"
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  performer <- labelledLit already f "PERFORMER"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cuePerformer = Just performer } }
 
 pTitle :: Parser ()
 pTitle = do
-  already <- gets (isJust . cueTitle . contextCueSheet)
+  already <- bool Nothing (Just CueParserDuplicateTitle)
+    <$> gets (isJust . cueTitle . contextCueSheet)
   let f x' = let x = T.pack x' in
-        if already
-          then Left CueParserDuplicateTitle
-          else case mkCueText x of
-                 Nothing -> Left (CueParserInvalidCueText x)
-                 Just txt -> Right txt
-  title <- labelledLit f "TITLE"
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  title <- labelledLit already f "TITLE"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueTitle = Just title } }
 
 pSongwriter :: Parser ()
 pSongwriter = do
-  already <- gets (isJust . cueTitle . contextCueSheet)
+  already <- bool Nothing (Just CueParserDuplicateSongwriter)
+    <$> gets (isJust . cueTitle . contextCueSheet)
   let f x' = let x = T.pack x' in
-        if already
-          then Left CueParserDuplicateSongwriter
-          else case mkCueText x of
-                 Nothing -> Left (CueParserInvalidCueText x)
-                 Just txt -> Right txt
-  songwriter <- labelledLit f "SONGWRITER"
+        case mkCueText x of
+          Nothing -> Left (CueParserInvalidCueText x)
+          Just txt -> Right txt
+  songwriter <- labelledLit already f "SONGWRITER"
   modify $ \x -> x { contextCueSheet =
     (contextCueSheet x) { cueSongwriter = Just songwriter } }
 
@@ -247,15 +238,13 @@ pFile :: Parser ()
 pFile = do
   void (symbol "FILE")
   filename <- lexeme stringLit
-  let f x' = let x = T.pack x' in
-        case T.toUpper x of
-          "BINARY"   -> Right Binary
-          "MOTOROLA" -> Right Motorola
-          "AIFF"     -> Right Aiff
-          "WAVE"     -> Right Wave
-          "MP3"      -> Right MP3
-          _          -> Left (CueParserUnknownFileType x)
-  filetype <- withCheck f (lexeme stringLit) <* eol <* scn
+  let pFiletype = choice
+        [ Binary   <$ symbol "BINARY"
+        , Motorola <$ symbol "MOTOROLA"
+        , Aiff     <$ symbol "AIFF"
+        , Wave     <$ symbol "WAVE"
+        , MP3      <$ symbol "MP3" ]
+  filetype <- pFiletype <* eol <* scn
   void (some pTrack)
   tracks <- gets contextTracks
   let newFile = CueFile
@@ -277,18 +266,16 @@ pTrack = do
           then Right x
           else Left CueParserTrackOutOfOrder
   n <- withCheck f (fromIntegral <$> lexeme L.integer)
-  let g x' = let x = T.pack x' in
-        case T.toUpper x of
-          "AUDIO"      -> Right CueTrackAudio
-          "CDG"        -> Right CueTrackCdg
-          "MODE1/2048" -> Right CueTrackMode1_2048
-          "MODE1/2352" -> Right CueTrackMode1_2352
-          "MODE2/2336" -> Right CueTrackMode2_2336
-          "MODE2/2352" -> Right CueTrackMode2_2352
-          "CDI/2336"   -> Right CueTrackCdi2336
-          "CDI/2352"   -> Right CueTrackCdi2352
-          _            -> Left (CueParserUnknownTrackType x)
-  trackType <- withCheck g (lexeme stringLit) <* eol <* scn
+  let pTrackType = choice
+        [ CueTrackAudio      <$ symbol "AUDIO"
+        , CueTrackCdg        <$ symbol "CDG"
+        , CueTrackMode1_2048 <$ symbol "MODE1/2048"
+        , CueTrackMode1_2352 <$ symbol "MODE1/2352"
+        , CueTrackMode2_2336 <$ symbol "MODE2/2336"
+        , CueTrackMode2_2352 <$ symbol "MODE2/2352"
+        , CueTrackCdi2336    <$ symbol "CDI/2336"
+        , CueTrackCdi2352    <$ symbol "CDI/2352" ]
+  trackType <- pTrackType <* eol <* scn
   let newTrack = dummyTrack { cueTrackType = trackType }
   modify $ \x -> x
     { contextTracks     = newTrack : contextTracks x
@@ -307,17 +294,54 @@ pTrackHeaderItem :: Parser ()
 pTrackHeaderItem = choice
   [ pFlags
   , pIsrc
-  , pPerformer
-  , pTitle
-  , pSongwriter
+  , pTrackPerformer
+  , pTrackTitle
+  , pTrackSongwriter
   , pRem
   , pPregap ]
 
 pFlags :: Parser ()
-pFlags = undefined -- TODO
+pFlags = do
+  already <- gets (seenFlags . head . contextTracks)
+  let f () =
+        if already
+          then Left CueParserDuplicateTrackFlags
+          else Right ()
+  withCheck f (void $ symbol "FLAGS")
+  void (some pFlag) <* eol <* scn
+
+-- | A helper data type.
+
+data CueTrackFlag = DCP | FourCH | PRE | SCMS
+
+pFlag :: Parser ()
+pFlag = do
+  flag <- choice
+    [ DCP    <$ symbol "DCP"
+    , FourCH <$ symbol "4CH"
+    , PRE    <$ symbol "PRE"
+    , SCMS   <$ symbol "SCMS" ]
+  modify $ \x -> x
+    { contextTracks =
+        let (a:as) = contextTracks x
+            a'     = case flag of
+             DCP    -> a { cueTrackDigitalCopyPermitted = True }
+             FourCH -> a { cueTrackFourChannelAudio     = True }
+             PRE    -> a { cueTrackPreemphasisEnabled   = True }
+             SCMS   -> a { cueTrackSerialCopyManagement = True }
+        in a':as }
 
 pIsrc :: Parser ()
 pIsrc = undefined -- TODO
+
+pTrackPerformer :: Parser ()
+pTrackPerformer = undefined -- TODO
+
+pTrackTitle :: Parser ()
+pTrackTitle = undefined -- TODO
+
+pTrackSongwriter :: Parser ()
+pTrackSongwriter = undefined -- TODO
 
 pPregap :: Parser ()
 pPregap = undefined -- TODO
@@ -361,10 +385,18 @@ inTrack n m = do
 
 -- | A labelled literal (a helper for common case).
 
-labelledLit :: (String -> Either CueParserFailure a) -> String -> Parser a
-labelledLit f command = do
-  void (symbol command)
-  withCheck f (lexeme stringLit) <* eol <* scn
+labelledLit
+  :: Maybe CueParserFailure -- ^ Which error to signal when command is parsed
+  -> (String -> Either CueParserFailure a)
+  -> String
+  -> Parser a
+labelledLit mfail check command = do
+  let f () =
+        case mfail of
+          Nothing -> Right ()
+          Just err -> Left err
+  withCheck f (void $ symbol command)
+  withCheck check (lexeme stringLit) <* eol <* scn
 
 -- | String literal with support for quotation.
 
@@ -393,6 +425,15 @@ scn = L.space (void spaceChar) empty empty
 
 sc :: Parser ()
 sc = L.space (void $ oneOf ("\t " :: String)) empty empty
+
+-- | Determine by 'CueTrack' if we have already parsed FLAGS command.
+
+seenFlags :: CueTrack -> Bool
+seenFlags CueTrack {..} = or
+  [ cueTrackDigitalCopyPermitted
+  , cueTrackFourChannelAudio
+  , cueTrackPreemphasisEnabled
+  , cueTrackSerialCopyManagement ]
 
 ----------------------------------------------------------------------------
 -- Dummies
