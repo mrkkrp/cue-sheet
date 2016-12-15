@@ -82,7 +82,9 @@ data CueParserFailure
   | CueParserDuplicateTrackSongwriter
   | CueParserDuplicateTrackPregap
   | CueParserDuplicateTrackPostgap
-  | CueParserInvalidTime Text
+  | CueParserInvalidSeconds Natural
+  | CueParserInvalidFrames Natural
+  | CueParserTrackIndexOutOfOrder
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ShowErrorComponent CueParserFailure where
@@ -123,8 +125,12 @@ instance ShowErrorComponent CueParserFailure where
       "a track can have only one PREGAP declaration"
     CueParserDuplicateTrackPostgap ->
       "a track can have only one POSTGAP declaration"
-    CueParserInvalidTime txt ->
-      "\"" ++ T.unpack txt ++ "\" is not a valid duration or time position"
+    CueParserInvalidSeconds n ->
+      "\"" ++ show n ++ "\" is not a valid number of seconds"
+    CueParserInvalidFrames n ->
+      "\"" ++ show n ++ "\" is not a valid number of frames"
+    CueParserTrackIndexOutOfOrder ->
+      "this index apprears out of order"
 
 -- | Type of parser we use here, it's not public.
 
@@ -136,19 +142,21 @@ type Parser a = StateT Context (Parsec Eec BL.ByteString) a
 -- validate track numbers, etc.
 
 data Context = Context
-  { contextCueSheet   :: CueSheet
+  { contextCueSheet   :: !CueSheet
     -- ^ Current state of CUE sheet we parse. When a part\/parameter of CUE
     -- sheet is parsed, this thing is updated.
-  , contextFiles      :: [CueFile]
+  , contextFiles      :: ![CueFile]
     -- ^ Temporary storage for parsed files (we can't store it in the
     -- 'CueSheet' because it does not allow empty list of files).
-  , contextTracks     :: [CueTrack]
+  , contextTracks     :: ![CueTrack]
     -- ^ Similar to 'contextFiles', collection of tracks but for current
     -- file.
-  , contextTrackCount :: Natural
+  , contextTrackCount :: !Natural
     -- ^ Number of tracks we have parsed so far, to avoid traversing lists
     -- again and again.
-  , contextIndexCount :: Natural
+  , contextIndices    :: ![CueTime]
+    -- ^ Temporary storage for collection indices for current track.
+  , contextIndexCount :: !Natural
     -- ^ Similarly for indices.
   }
 
@@ -172,6 +180,7 @@ parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
       , contextFiles          = []
       , contextTracks         = []
       , contextTrackCount     = 0
+      , contextIndices        = []
       , contextIndexCount     = 0 }
 
 -- | Parse a 'CueSheet'. The result is not returned, but written in
@@ -274,7 +283,7 @@ pFile = do
   let newFile = CueFile
         { cueFileName   = filename
         , cueFileType   = filetype
-        , cueFileTracks = NE.fromList tracks }
+        , cueFileTracks = NE.fromList (reverse tracks) }
   modify $ \x -> x
     { contextFiles  = newFile : contextFiles x
     , contextTracks = [] }
@@ -310,8 +319,22 @@ pTrack = do
           else old }
   inTrack n $ do
     void (many pTrackHeaderItem)
-    -- TODO optional index 0
-    -- TODO indices
+    index0 <- optional (pIndex 0)
+    modify $ \x -> x
+      { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+          t { cueTrackPregapIndex = index0 } }
+    modify $ \x -> x
+      { contextIndices    = []
+      , contextIndexCount = 0 }
+    void . some $ do
+      next <- (+ 1) <$> gets contextIndexCount
+      nextIndex <- pIndex next
+      modify $ \x -> x
+        { contextIndices    = nextIndex : contextIndices x
+        , contextIndexCount = next }
+    modify $ \x -> x
+      { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+          t { cueTrackIndices = (NE.fromList . reverse . contextIndices) x } }
     void (optional pPostgap)
 
 pTrackHeaderItem :: Parser ()
@@ -406,10 +429,59 @@ pTrackSongwriter = do
         t { cueTrackSongwriter = Just songwriter } }
 
 pPregap :: Parser ()
-pPregap = undefined -- TODO
+pPregap = do
+  already <- gets (isJust . cueTrackPregap . head . contextTracks)
+  let f () =
+        if already
+          then Left CueParserDuplicateTrackPregap
+          else Right ()
+  withCheck f (void $ symbol "PREGAP")
+  time <- lexeme cueTime <* eol <* scn
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackPregap = Just time } }
 
 pPostgap :: Parser ()
-pPostgap = undefined -- TODO
+pPostgap = do
+  already <- gets (isJust . cueTrackPregap . head . contextTracks)
+  let f () =
+        if already
+          then Left CueParserDuplicateTrackPostgap
+          else Right ()
+  withCheck f (void $ symbol "POSTGAP")
+  time <- lexeme cueTime <* eol <* scn
+  modify $ \x -> x
+    { contextTracks = changingFirstOf (contextTracks x) $ \t ->
+        t { cueTrackPregap = Just time } }
+
+pIndex :: Natural -> Parser CueTime
+pIndex n = do
+  void (symbol "INDEX")
+  let f x =
+        if x == n
+          then Right ()
+          else Left CueParserTrackIndexOutOfOrder
+  withCheck f (lexeme naturalLit)
+  lexeme cueTime <* eol <* scn
+
+cueTime :: Parser CueTime
+cueTime = do
+  minutes <- naturalLit
+  void (char ':')
+  let checkSeconds n =
+        if n < 60
+          then Right n
+          else Left (CueParserInvalidSeconds n)
+      checkFrames n =
+        if n < 75
+          then Right n
+          else Left (CueParserInvalidFrames n)
+  seconds <- withCheck checkSeconds naturalLit
+  void (char ':')
+  frames  <- withCheck checkFrames  naturalLit
+  case fromMmSsFf minutes seconds frames of
+    Nothing -> empty -- NOTE must be always valid, we checked already
+    Just  x -> return x
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -467,6 +539,11 @@ stringLit = quoted <|> unquoted
   where
     quoted   = char '\"' *> manyTill (noneOf ("\n" :: String)) (char '\"')
     unquoted = many (noneOf ("\n\t " :: String))
+
+-- | Parse a 'Natural'.
+
+naturalLit :: Parser Natural
+naturalLit = fromIntegral <$> L.integer
 
 -- | Case-insensitive symbol parser.
 
