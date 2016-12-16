@@ -40,6 +40,7 @@ import Control.Monad.Catch
 import Data.List.NonEmpty (NonEmpty (..))
 import Test.Hspec
 import Test.QuickCheck
+import Text.CueSheet.Parser
 import Text.CueSheet.Render
 import Text.CueSheet.Types
 import qualified Data.ByteString.Lazy as BL
@@ -62,8 +63,12 @@ spec =
     it "doesn't look too bad" $ do
       expected <- BL.readFile "cue-sheet-samples/rendered0.cue"
       cueSheet <- testCueSheet
-      BL.writeFile "cue-sheet-samples/actual.cue" (renderCueSheet False cueSheet)
       renderCueSheet False cueSheet `shouldBe` expected
+    it "produces content that can be correctly parsed back" $
+      property $ \csrf cueSheet -> do
+        let r = renderCueSheet csrf cueSheet
+        parseCueSheet "" r
+          `shouldBe` Right cueSheet
 
 -- | A manually constructed testing CUE sheet.
 
