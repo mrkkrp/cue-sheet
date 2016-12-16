@@ -34,10 +34,12 @@ import GHC.Generics
 import Numeric.Natural
 import Text.CueSheet.Types
 import Text.Megaparsec
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Set              as E
 import qualified Data.Text             as T
+import qualified Data.Text.Encoding    as T
 import qualified Text.Megaparsec.Lexer as L
 
 ----------------------------------------------------------------------------
@@ -230,7 +232,7 @@ pPerformer :: Parser ()
 pPerformer = do
   already <- bool Nothing (Just CueParserDuplicatePerformer)
     <$> gets (isJust . cuePerformer . contextCueSheet)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -242,7 +244,7 @@ pTitle :: Parser ()
 pTitle = do
   already <- bool Nothing (Just CueParserDuplicateTitle)
     <$> gets (isJust . cueTitle . contextCueSheet)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -253,8 +255,8 @@ pTitle = do
 pSongwriter :: Parser ()
 pSongwriter = do
   already <- bool Nothing (Just CueParserDuplicateSongwriter)
-    <$> gets (isJust . cueTitle . contextCueSheet)
-  let f x' = let x = T.pack x' in
+    <$> gets (isJust . cueSongwriter . contextCueSheet)
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -295,7 +297,7 @@ pTrack = do
   trackOffset <- gets (cueFirstTrackNumber . contextCueSheet)
   trackCount  <- gets contextTrackCount
   let f x =
-        if firstTrack || x == trackOffset + trackCount + 1
+        if firstTrack || x == trackOffset + trackCount
           then Right x
           else Left CueParserTrackOutOfOrder
   n <- withCheck f (fromIntegral <$> lexeme L.integer)
@@ -319,7 +321,7 @@ pTrack = do
           else old }
   inTrack n $ do
     void (many pTrackHeaderItem)
-    index0 <- optional (pIndex 0)
+    index0 <- (optional . try . pIndex) 0
     modify $ \x -> x
       { contextTracks = changingFirstOf (contextTracks x) $ \t ->
           t { cueTrackPregapIndex = index0 } }
@@ -393,7 +395,7 @@ pTrackPerformer :: Parser ()
 pTrackPerformer = do
   already <- bool Nothing (Just CueParserDuplicateTrackPerformer)
     <$> gets (isJust . cueTrackPerformer . head . contextTracks)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -406,7 +408,7 @@ pTrackTitle :: Parser ()
 pTrackTitle = do
   already <- bool Nothing (Just CueParserDuplicateTrackTitle)
     <$> gets (isJust . cueTrackTitle . head . contextTracks)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -419,7 +421,7 @@ pTrackSongwriter :: Parser ()
 pTrackSongwriter = do
   already <- bool Nothing (Just CueParserDuplicateTrackSongwriter)
     <$> gets (isJust . cueTrackSongwriter . head . contextTracks)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -443,7 +445,7 @@ pPregap = do
 
 pPostgap :: Parser ()
 pPostgap = do
-  already <- gets (isJust . cueTrackPregap . head . contextTracks)
+  already <- gets (isJust . cueTrackPostgap . head . contextTracks)
   let f () =
         if already
           then Left CueParserDuplicateTrackPostgap
@@ -579,6 +581,11 @@ seenFlags CueTrack {..} = or
 changingFirstOf :: [a] -> (a -> a) -> [a]
 changingFirstOf [] _ = []
 changingFirstOf (x:xs) f = f x : xs
+
+-- | Decode UTF-8 encoded 'B.ByteString' represented as a 'String'.
+
+decodeUtf8 :: String -> Text
+decodeUtf8 = T.decodeUtf8 . B8.pack
 
 ----------------------------------------------------------------------------
 -- Dummies

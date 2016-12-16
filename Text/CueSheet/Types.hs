@@ -80,7 +80,7 @@ instance Arbitrary CueSheet where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    <*> arbitrary
+    <*> (arbitrary `suchThat` (> 0))
 #if MIN_VERSION_QuickCheck(2,9,0)
     <*> scaleDown arbitrary
 #else
