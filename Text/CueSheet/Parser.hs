@@ -17,9 +17,9 @@
 {-# LANGUAGE RecordWildCards    #-}
 
 module Text.CueSheet.Parser
-  ( Eec (..)
+  ( parseCueSheet
   , CueParserFailure (..)
-  , parseCueSheet )
+  , Eec (..) )
 where
 
 import Control.Applicative

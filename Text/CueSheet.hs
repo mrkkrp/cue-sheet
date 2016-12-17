@@ -13,16 +13,16 @@
 -- files and 'renderCueSheet' for rendering.
 --
 -- If you need to embed\/extract a CUE sheet in a FLAC file, see the @flac@
--- packages <https://hackage.haskell.org/package/flac>.
+-- package <https://hackage.haskell.org/package/flac>.
 
 module Text.CueSheet
   ( -- * Types
-    CueSheet      (..)
-  , CueFile       (..)
-  , CueFileType   (..)
-  , CueTrack      (..)
-  , CueTrackType  (..)
-  , CueTime       (..)
+    CueSheet (..)
+  , CueFile (..)
+  , CueFileType (..)
+  , CueTrack (..)
+  , CueTrackType (..)
+  , CueTime (..)
   , fromMmSsFf
   , toMmSsFf
   , showMmSsFf
@@ -37,9 +37,9 @@ module Text.CueSheet
   , unIsrc
   , CueSheetException (..)
     -- * Parsing
-  , Eec (..)
-  , CueParserFailure (..)
   , parseCueSheet
+  , CueParserFailure (..)
+  , Eec (..)
     -- * Rendering
   , renderCueSheet )
 where

@@ -15,12 +15,12 @@
 {-# LANGUAGE DeriveGeneric      #-}
 
 module Text.CueSheet.Types
-  ( CueSheet      (..)
-  , CueFile       (..)
-  , CueFileType   (..)
-  , CueTrack      (..)
-  , CueTrackType  (..)
-  , CueTime       (..)
+  ( CueSheet (..)
+  , CueFile (..)
+  , CueFileType (..)
+  , CueTrack (..)
+  , CueTrackType (..)
+  , CueTime (..)
   , fromMmSsFf
   , toMmSsFf
   , showMmSsFf
