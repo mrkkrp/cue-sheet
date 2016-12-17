@@ -169,13 +169,86 @@ spec =
             , "TITLE" ]
       parseCueSheet "" bs `shouldFailWith` err (posN (18 :: Int) bs)
         (utok 'S' <> es)
-    it "rejects duplicate FLAGS command (in track)" pending
-    it "rejects duplicate ISRC command (in track)" pending
-    it "rejects duplicate PERFORMER command (in track)" pending
-    it "rejects duplicate TITLE command (in track)" pending
-    it "rejects duplicate SONGWRITER command (in track)" pending
-    it "rejects duplicate PREGAP command (in track)" pending
-    it "rejects duplicate POSTGAP command (in track)" pending
+    it "rejects duplicate FLAGS command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-flags.cue"
+      let es = foldMap etoks
+            [ "INDEX"
+            , "ISRC"
+            , "PERFORMER"
+            , "PREGAP"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (144 :: Int) bs)
+        (utok 'F' <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate ISRC command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-isrc.cue"
+      let es = foldMap etoks
+            [ "FLAGS"
+            , "INDEX"
+            , "PERFORMER"
+            , "PREGAP"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (152 :: Int) bs)
+        (utok 'I' <> utoks "IS" <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate PERFORMER command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-performer.cue"
+      let es = foldMap etoks
+            [ "FLAGS"
+            , "INDEX"
+            , "ISRC"
+            , "PREGAP"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (156 :: Int) bs)
+        (utok 'P' <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate TITLE command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-title.cue"
+      let es = foldMap etoks
+            [ "FLAGS"
+            , "INDEX"
+            , "ISRC"
+            , "PERFORMER"
+            , "PREGAP"
+            , "REM"
+            , "SONGWRITER" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (146 :: Int) bs)
+        (utok 'T' <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate SONGWRITER command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-songwriter.cue"
+      let es = foldMap etoks
+            [ "FLAGS"
+            , "INDEX"
+            , "ISRC"
+            , "PERFORMER"
+            , "PREGAP"
+            , "REM"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (150 :: Int) bs)
+        (utok 'S' <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate PREGAP command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-pregap.cue"
+      let es = foldMap etoks
+            [ "FLAGS"
+            , "INDEX"
+            , "ISRC"
+            , "PERFORMER"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (176 :: Int) bs)
+        (utok 'P' <> es <> cstm (Eec (Just 1) Nothing))
+    it "rejects duplicate POSTGAP command (in track)" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-postgap.cue"
+      let es = foldMap etoks
+            [ "FILE"
+            , "REM"
+            , "TRACK" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (199 :: Int) bs)
+        (utok 'P' <> es <> eeof)
 
 testSheet :: MonadThrow m => m CueSheet
 testSheet = do
