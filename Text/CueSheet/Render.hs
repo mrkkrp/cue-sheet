@@ -21,6 +21,7 @@ where
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Writer.Lazy
+import Data.Char (isSpace, chr)
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Numeric.Natural
@@ -46,7 +47,7 @@ renderCueSheet csrf CueSheet {..} =
         tellText x =
           let raw = T.encodeUtf8 x
           in tell . BB.byteString $
-             if 32 `B.elem` raw || B.null raw
+             if B.any (isSpace . chr . fromIntegral) raw || B.null raw
                then "\"" <> raw <> "\""
                else raw
     forM_ cueCatalog $ \x -> do

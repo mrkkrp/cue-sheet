@@ -212,7 +212,7 @@ pCatalog :: Parser ()
 pCatalog = do
   already <- bool Nothing (Just CueParserDuplicateCatalog)
     <$> gets (isJust . cueCatalog . contextCueSheet)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = decodeUtf8 x' in
         case mkMcn x of
           Nothing -> Left (CueParserInvalidCatalog x)
           Just mcn -> Right mcn
@@ -224,9 +224,9 @@ pCdTextFile :: Parser ()
 pCdTextFile = do
   already <- bool Nothing (Just CueParserDuplicateCdTextFile)
     <$> gets (isJust . cueCdTextFile . contextCueSheet)
-  cdTextFile <- labelledLit already Right "CDTEXTFILE"
+  cdTextFile <- decodeUtf8 <$> labelledLit already Right "CDTEXTFILE"
   modify $ \x -> x { contextCueSheet = (contextCueSheet x)
-    { cueCdTextFile = Just cdTextFile } }
+    { cueCdTextFile = Just (T.unpack cdTextFile) } }
 
 pPerformer :: Parser ()
 pPerformer = do
@@ -272,7 +272,7 @@ pRem = do
 pFile :: Parser ()
 pFile = do
   void (symbol "FILE")
-  filename <- lexeme stringLit
+  filename <- decodeUtf8 <$> lexeme stringLit
   let pFiletype = choice
         [ Binary   <$ symbol "BINARY"
         , Motorola <$ symbol "MOTOROLA"
@@ -283,7 +283,7 @@ pFile = do
   void (some pTrack)
   tracks <- gets contextTracks
   let newFile = CueFile
-        { cueFileName   = filename
+        { cueFileName   = T.unpack filename
         , cueFileType   = filetype
         , cueFileTracks = NE.fromList (reverse tracks) }
   modify $ \x -> x
@@ -293,10 +293,10 @@ pFile = do
 pTrack :: Parser ()
 pTrack = do
   void (symbol "TRACK")
-  firstTrack  <- gets (null . contextTracks)
   trackOffset <- gets (cueFirstTrackNumber . contextCueSheet)
   trackCount  <- gets contextTrackCount
-  let f x =
+  let firstTrack = trackCount == 0
+      f x =
         if firstTrack || x == trackOffset + trackCount
           then Right x
           else Left CueParserTrackOutOfOrder
@@ -454,7 +454,7 @@ pPostgap = do
   time <- lexeme cueTime <* eol <* scn
   modify $ \x -> x
     { contextTracks = changingFirstOf (contextTracks x) $ \t ->
-        t { cueTrackPregap = Just time } }
+        t { cueTrackPostgap = Just time } }
 
 pIndex :: Natural -> Parser CueTime
 pIndex n = do
@@ -540,7 +540,7 @@ stringLit :: Parser String
 stringLit = quoted <|> unquoted
   where
     quoted   = char '\"' *> manyTill (noneOf ("\n" :: String)) (char '\"')
-    unquoted = many (noneOf ("\n\t " :: String))
+    unquoted = many (noneOf ("\n\t\r " :: String))
 
 -- | Parse a 'Natural'.
 

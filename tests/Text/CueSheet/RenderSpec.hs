@@ -65,9 +65,8 @@ spec =
       cueSheet <- testCueSheet
       renderCueSheet False cueSheet `shouldBe` expected
     it "produces content that can be correctly parsed back" $
-      property $ \csrf cueSheet -> do
-        let r = renderCueSheet csrf cueSheet
-        parseCueSheet "" r
+      property $ \csrf cueSheet ->
+        parseCueSheet "" (renderCueSheet csrf cueSheet)
           `shouldBe` Right cueSheet
 
 -- | A manually constructed testing CUE sheet.
