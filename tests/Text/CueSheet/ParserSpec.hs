@@ -82,12 +82,45 @@ spec =
       parseCueSheet "" bs `shouldFailWith`
         err (posN (180 :: Int) bs)
           (ueof <> etoks "INDEX" <> etoks "REM" <> inTrack1)
-    it "parser a normal CUE file without issues" $ do
-      bs <- BL.readFile "cue-sheet-samples/normal.cue"
+    it "parses a normal CUE file without issues" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-normal.cue"
       sheet <- normalCueSheet
       parseCueSheet "" bs `shouldParse` sheet
-
--- TODO One test per special failure mode
+    it "rejects invalid catalog number" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-invalid-catalog.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (8 :: Int) bs)
+        (cstm (Eec Nothing (Just $ CueParserInvalidCatalog "123")))
+    it "rejects invalid CUE text" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-invalid-text.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (10 :: Int) bs)
+        (cstm (Eec Nothing (Just $ CueParserInvalidCueText "")))
+    it "detects and reports tracks that appear out of order" pending
+    it "rejects invalid ISRC values" pending
+    it "rejects invalid number of seconds" pending
+    it "rejects invalid number of frames" pending
+    it "detects and reports indices that appear out of order" pending
+    it "rejects duplicate CATALOG command" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-catalog.cue"
+      let es = foldMap etoks
+            [ "CDTEXTFILE"
+            , "FILE"
+            , "PERFORMER"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (22 :: Int) bs)
+        (utok 'C' <> es)
+    it "rejects duplicate CDTEXTFILE command" pending
+    it "rejects duplicate PERFORMER command" pending
+    it "rejects duplicate TITLE command" pending
+    it "rejects duplicate SONGWRITER command" pending
+    it "rejects duplicate FLAGS command (in track)" pending
+    it "rejects duplicate ISRC command (in track)" pending
+    it "rejects duplicate PERFORMER command (in track)" pending
+    it "rejects duplicate TITLE command (in track)" pending
+    it "rejects duplicate SONGWRITER command (in track)" pending
+    it "rejects duplicate PREGAP command (in track)" pending
+    it "rejects duplicate POSTGAP command (in track)" pending
 
 testSheet :: MonadThrow m => m CueSheet
 testSheet = do

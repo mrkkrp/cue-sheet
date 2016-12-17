@@ -24,7 +24,6 @@ where
 
 import Control.Applicative
 import Control.Monad.State.Strict
-import Data.Bool (bool)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust)
@@ -70,20 +69,8 @@ data CueParserFailure
   | CueParserIndentation Ordering Pos Pos
   | CueParserInvalidCatalog Text
   | CueParserInvalidCueText Text
-  | CueParserDuplicateCatalog
-  | CueParserDuplicateCdTextFile
-  | CueParserDuplicatePerformer
-  | CueParserDuplicateTitle
-  | CueParserDuplicateSongwriter
   | CueParserTrackOutOfOrder
-  | CueParserDuplicateTrackFlags
-  | CueParserDuplicateTrackIsrc
   | CueParserInvalidTrackIsrc Text
-  | CueParserDuplicateTrackPerformer
-  | CueParserDuplicateTrackTitle
-  | CueParserDuplicateTrackSongwriter
-  | CueParserDuplicateTrackPregap
-  | CueParserDuplicateTrackPostgap
   | CueParserInvalidSeconds Natural
   | CueParserInvalidFrames Natural
   | CueParserTrackIndexOutOfOrder
@@ -99,34 +86,10 @@ instance ShowErrorComponent CueParserFailure where
       "the value \"" ++ T.unpack txt ++ "\" is not a valid Media Catalog Number"
     CueParserInvalidCueText txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid CUE text literal"
-    CueParserDuplicateCatalog ->
-      "a CUE sheet can have only one CATALOG declaration"
-    CueParserDuplicateCdTextFile ->
-      "a CUE sheet can have only one CDTEXTFILE declaration"
-    CueParserDuplicatePerformer ->
-      "a CUE sheet can have only one top-level PERFORMER declaration"
-    CueParserDuplicateTitle ->
-      "a CUE sheet can have only one top-level TITLE declaration"
-    CueParserDuplicateSongwriter ->
-      "a CUE sheet can have only one top-level SONGWRITER declaration"
     CueParserTrackOutOfOrder ->
       "this track appears out of order"
-    CueParserDuplicateTrackFlags ->
-      "a track can have only one FLAGS declaration"
-    CueParserDuplicateTrackIsrc ->
-      "a track can have only one ISRC declaration"
     CueParserInvalidTrackIsrc txt ->
       "\"" ++ T.unpack txt ++ "\" is not a valid ISRC"
-    CueParserDuplicateTrackPerformer ->
-      "a track can have only one PERFORMER declaration"
-    CueParserDuplicateTrackTitle ->
-      "a track can have only one TITLE declaration"
-    CueParserDuplicateTrackSongwriter ->
-      "a track can have only one SONGWRITER declaration"
-    CueParserDuplicateTrackPregap ->
-      "a track can have only one PREGAP declaration"
-    CueParserDuplicateTrackPostgap ->
-      "a track can have only one POSTGAP declaration"
     CueParserInvalidSeconds n ->
       "\"" ++ show n ++ "\" is not a valid number of seconds"
     CueParserInvalidFrames n ->
@@ -210,8 +173,7 @@ pHeaderItem = choice
 
 pCatalog :: Parser ()
 pCatalog = do
-  already <- bool Nothing (Just CueParserDuplicateCatalog)
-    <$> gets (isJust . cueCatalog . contextCueSheet)
+  already <- gets (isJust . cueCatalog . contextCueSheet)
   let f x' = let x = decodeUtf8 x' in
         case mkMcn x of
           Nothing -> Left (CueParserInvalidCatalog x)
@@ -222,16 +184,14 @@ pCatalog = do
 
 pCdTextFile :: Parser ()
 pCdTextFile = do
-  already <- bool Nothing (Just CueParserDuplicateCdTextFile)
-    <$> gets (isJust . cueCdTextFile . contextCueSheet)
+  already <- gets (isJust . cueCdTextFile . contextCueSheet)
   cdTextFile <- decodeUtf8 <$> labelledLit already Right "CDTEXTFILE"
   modify $ \x -> x { contextCueSheet = (contextCueSheet x)
     { cueCdTextFile = Just (T.unpack cdTextFile) } }
 
 pPerformer :: Parser ()
 pPerformer = do
-  already <- bool Nothing (Just CueParserDuplicatePerformer)
-    <$> gets (isJust . cuePerformer . contextCueSheet)
+  already <- gets (isJust . cuePerformer . contextCueSheet)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -242,8 +202,7 @@ pPerformer = do
 
 pTitle :: Parser ()
 pTitle = do
-  already <- bool Nothing (Just CueParserDuplicateTitle)
-    <$> gets (isJust . cueTitle . contextCueSheet)
+  already <- gets (isJust . cueTitle . contextCueSheet)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -254,8 +213,7 @@ pTitle = do
 
 pSongwriter :: Parser ()
 pSongwriter = do
-  already <- bool Nothing (Just CueParserDuplicateSongwriter)
-    <$> gets (isJust . cueSongwriter . contextCueSheet)
+  already <- gets (isJust . cueSongwriter . contextCueSheet)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -353,11 +311,7 @@ pTrackHeaderItem = choice
 pFlags :: Parser ()
 pFlags = do
   already <- gets (seenFlags . head . contextTracks)
-  let f () =
-        if already
-          then Left CueParserDuplicateTrackFlags
-          else Right ()
-  withCheck f (void $ symbol "FLAGS")
+  failAtIf already (void $ symbol "FLAGS")
   void (some pFlag) <* eol <* scn
 
 -- | A helper data type.
@@ -381,8 +335,7 @@ pFlag = do
 
 pIsrc :: Parser ()
 pIsrc = do
-  already <- bool Nothing (Just CueParserDuplicateTrackIsrc)
-    <$> gets (isJust . cueTrackIsrc . head . contextTracks)
+  already <- gets (isJust . cueTrackIsrc . head . contextTracks)
   let f x' = let x = T.pack x' in
         case mkIsrc x of
           Nothing -> Left (CueParserInvalidTrackIsrc x)
@@ -394,8 +347,7 @@ pIsrc = do
 
 pTrackPerformer :: Parser ()
 pTrackPerformer = do
-  already <- bool Nothing (Just CueParserDuplicateTrackPerformer)
-    <$> gets (isJust . cueTrackPerformer . head . contextTracks)
+  already <- gets (isJust . cueTrackPerformer . head . contextTracks)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -407,8 +359,7 @@ pTrackPerformer = do
 
 pTrackTitle :: Parser ()
 pTrackTitle = do
-  already <- bool Nothing (Just CueParserDuplicateTrackTitle)
-    <$> gets (isJust . cueTrackTitle . head . contextTracks)
+  already <- gets (isJust . cueTrackTitle . head . contextTracks)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -420,8 +371,7 @@ pTrackTitle = do
 
 pTrackSongwriter :: Parser ()
 pTrackSongwriter = do
-  already <- bool Nothing (Just CueParserDuplicateTrackSongwriter)
-    <$> gets (isJust . cueTrackSongwriter . head . contextTracks)
+  already <- gets (isJust . cueTrackSongwriter . head . contextTracks)
   let f x' = let x = decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
@@ -434,11 +384,7 @@ pTrackSongwriter = do
 pPregap :: Parser ()
 pPregap = do
   already <- gets (isJust . cueTrackPregap . head . contextTracks)
-  let f () =
-        if already
-          then Left CueParserDuplicateTrackPregap
-          else Right ()
-  withCheck f (void $ symbol "PREGAP")
+  failAtIf already (void $ symbol "PREGAP")
   time <- lexeme cueTime <* eol <* scn
   modify $ \x -> x
     { contextTracks = changingFirstOf (contextTracks x) $ \t ->
@@ -447,11 +393,7 @@ pPregap = do
 pPostgap :: Parser ()
 pPostgap = do
   already <- gets (isJust . cueTrackPostgap . head . contextTracks)
-  let f () =
-        if already
-          then Left CueParserDuplicateTrackPostgap
-          else Right ()
-  withCheck f (void $ symbol "POSTGAP")
+  failAtIf already (void $ symbol "POSTGAP")
   time <- lexeme cueTime <* eol <* scn
   modify $ \x -> x
     { contextTracks = changingFirstOf (contextTracks x) $ \t ->
@@ -503,6 +445,16 @@ withCheck check p = do
       E.singleton (Eec Nothing (Just custom))
     Right x -> x <$ p
 
+-- | If the first argument is 'True' and the given parser succeeds, fail
+-- pointing at the beginning of the parser.
+
+failAtIf :: Bool -> Parser a -> Parser a
+failAtIf shouldFail p = do
+  void (lookAhead p)
+  if shouldFail
+    then empty
+    else p
+
 -- | Indicate that the inner parser belongs to declaration of track with
 -- given index. The index of the track will be added to 'ParseError's to
 -- help user find where the error happened.
@@ -523,16 +475,12 @@ inTrack n m = do
 -- | A labelled literal (a helper for common case).
 
 labelledLit
-  :: Maybe CueParserFailure -- ^ Which error to signal when command is parsed
-  -> (String -> Either CueParserFailure a)
-  -> String
+  :: Bool              -- ^ Should we instantly fail when command is parsed?
+  -> (String -> Either CueParserFailure a) -- ^ How to judge the result
+  -> String            -- ^ Name of the command to grab
   -> Parser a
-labelledLit mfail check command = do
-  let f () =
-        case mfail of
-          Nothing -> Right ()
-          Just err -> Left err
-  withCheck f (void $ symbol command)
+labelledLit shouldFail check command = do
+  failAtIf shouldFail (void $ symbol command)
   withCheck check (lexeme stringLit) <* eol <* scn
 
 -- | String literal with support for quotation.
