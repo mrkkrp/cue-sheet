@@ -311,7 +311,7 @@ pTrackHeaderItem = choice
 pFlags :: Parser ()
 pFlags = do
   already <- gets (seenFlags . head . contextTracks)
-  failAtIf already (void $ symbol "FLAGS")
+  failAtIf already "FLAGS"
   void (some pFlag) <* eol <* scn
 
 -- | A helper data type.
@@ -384,7 +384,7 @@ pTrackSongwriter = do
 pPregap :: Parser ()
 pPregap = do
   already <- gets (isJust . cueTrackPregap . head . contextTracks)
-  failAtIf already (void $ symbol "PREGAP")
+  failAtIf already "PREGAP"
   time <- lexeme cueTime <* eol <* scn
   modify $ \x -> x
     { contextTracks = changingFirstOf (contextTracks x) $ \t ->
@@ -393,7 +393,7 @@ pPregap = do
 pPostgap :: Parser ()
 pPostgap = do
   already <- gets (isJust . cueTrackPostgap . head . contextTracks)
-  failAtIf already (void $ symbol "POSTGAP")
+  failAtIf already "POSTGAP"
   time <- lexeme cueTime <* eol <* scn
   modify $ \x -> x
     { contextTracks = changingFirstOf (contextTracks x) $ \t ->
@@ -445,12 +445,14 @@ withCheck check p = do
       E.singleton (Eec Nothing (Just custom))
     Right x -> x <$ p
 
--- | If the first argument is 'True' and the given parser succeeds, fail
--- pointing at the beginning of the parser.
+-- | If the first argument is 'True' and we can parse the given command,
+-- fail pointing at the beginning of the command and report it as something
+-- unexpected.
 
-failAtIf :: Bool -> Parser a -> Parser a
-failAtIf shouldFail p = do
-  void (lookAhead p)
+failAtIf :: Bool -> String -> Parser ()
+failAtIf shouldFail command = do
+  let p = void (symbol command)
+  lookAhead p
   if shouldFail
     then empty
     else p
@@ -480,7 +482,7 @@ labelledLit
   -> String            -- ^ Name of the command to grab
   -> Parser a
 labelledLit shouldFail check command = do
-  failAtIf shouldFail (void $ symbol command)
+  failAtIf shouldFail command
   withCheck check (lexeme stringLit) <* eol <* scn
 
 -- | String literal with support for quotation.

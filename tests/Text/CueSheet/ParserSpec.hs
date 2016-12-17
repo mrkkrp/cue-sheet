@@ -94,11 +94,26 @@ spec =
       bs <- BL.readFile "cue-sheet-samples/parser-invalid-text.cue"
       parseCueSheet "" bs `shouldFailWith` err (posN (10 :: Int) bs)
         (cstm (Eec Nothing (Just $ CueParserInvalidCueText "")))
-    it "detects and reports tracks that appear out of order" pending
-    it "rejects invalid ISRC values" pending
-    it "rejects invalid number of seconds" pending
-    it "rejects invalid number of frames" pending
-    it "detects and reports indices that appear out of order" pending
+    it "detects and reports tracks that appear out of order" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-track-out-of-order.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (182 :: Int) bs)
+        (cstm (Eec Nothing (Just CueParserTrackOutOfOrder)))
+    it "rejects invalid ISRC values" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-invalid-isrc.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (161 :: Int) bs)
+        (cstm (Eec (Just 3) (Just (CueParserInvalidTrackIsrc "123"))))
+    it "rejects invalid number of seconds" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-invalid-seconds.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (168 :: Int) bs)
+        (cstm (Eec (Just 1) (Just (CueParserInvalidSeconds 61))))
+    it "rejects invalid number of frames" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-invalid-frames.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (171 :: Int) bs)
+        (cstm (Eec (Just 1) (Just (CueParserInvalidFrames 77))))
+    it "detects and reports indices that appear out of order" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-index-out-of-order.cue"
+      parseCueSheet "" bs `shouldFailWith` err (posN (162 :: Int) bs)
+        (cstm (Eec (Just 1) (Just CueParserTrackIndexOutOfOrder)))
     it "rejects duplicate CATALOG command" $ do
       bs <- BL.readFile "cue-sheet-samples/parser-duplicate-catalog.cue"
       let es = foldMap etoks
@@ -110,10 +125,50 @@ spec =
             , "TITLE" ]
       parseCueSheet "" bs `shouldFailWith` err (posN (22 :: Int) bs)
         (utok 'C' <> es)
-    it "rejects duplicate CDTEXTFILE command" pending
-    it "rejects duplicate PERFORMER command" pending
-    it "rejects duplicate TITLE command" pending
-    it "rejects duplicate SONGWRITER command" pending
+    it "rejects duplicate CDTEXTFILE command" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-cdtextfile.cue"
+      let es = foldMap etoks
+            [ "CATALOG"
+            , "FILE"
+            , "PERFORMER"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (23 :: Int) bs)
+        (utok 'C' <> es)
+    it "rejects duplicate PERFORMER command" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-performer.cue"
+      let es = foldMap etoks
+            [ "CATALOG"
+            , "CDTEXTFILE"
+            , "FILE"
+            , "REM"
+            , "SONGWRITER"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (30 :: Int) bs)
+        (utok 'P' <> es)
+    it "rejects duplicate TITLE command" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-title.cue"
+      let es = foldMap etoks
+            [ "CATALOG"
+            , "CDTEXTFILE"
+            , "FILE"
+            , "PERFORMER"
+            , "REM"
+            , "SONGWRITER" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (17 :: Int) bs)
+        (utok 'T' <> es)
+    it "rejects duplicate SONGWRITER command" $ do
+      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-songwriter.cue"
+      let es = foldMap etoks
+            [ "CATALOG"
+            , "CDTEXTFILE"
+            , "FILE"
+            , "PERFORMER"
+            , "REM"
+            , "TITLE" ]
+      parseCueSheet "" bs `shouldFailWith` err (posN (18 :: Int) bs)
+        (utok 'S' <> es)
     it "rejects duplicate FLAGS command (in track)" pending
     it "rejects duplicate ISRC command (in track)" pending
     it "rejects duplicate PERFORMER command (in track)" pending
