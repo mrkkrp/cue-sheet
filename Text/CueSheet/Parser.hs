@@ -280,7 +280,7 @@ pFile = do
         , Wave     <$ symbol "WAVE"
         , MP3      <$ symbol "MP3" ]
   filetype <- pFiletype <* eol <* scn
-  void (some pTrack)
+  void (some (pTrack <|> pRem))
   tracks <- gets contextTracks
   let newFile = CueFile
         { cueFileName   = T.unpack filename
@@ -328,12 +328,13 @@ pTrack = do
     modify $ \x -> x
       { contextIndices    = []
       , contextIndexCount = 0 }
-    void . some $ do
-      next <- (+ 1) <$> gets contextIndexCount
-      nextIndex <- pIndex next
-      modify $ \x -> x
-        { contextIndices    = nextIndex : contextIndices x
-        , contextIndexCount = next }
+    let grabIndex = do
+          next <- (+ 1) <$> gets contextIndexCount
+          nextIndex <- pIndex next
+          modify $ \x -> x
+            { contextIndices    = nextIndex : contextIndices x
+            , contextIndexCount = next }
+    void (some (grabIndex <|> pRem))
     modify $ \x -> x
       { contextTracks = changingFirstOf (contextTracks x) $ \t ->
           t { cueTrackIndices = (NE.fromList . reverse . contextIndices) x } }
