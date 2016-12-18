@@ -31,6 +31,13 @@ short, you parse a `CueSheet` with `parseCueSheet` function and render a
 course you still can construct a `CueSheet` manually. The data types are
 defined in such a way that incorrect CUE sheets are impossible to represent.
 
+## Contribution
+
+Issues, bugs, and questions may be reported in [the GitHub issue tracker for
+this project](https://github.com/mrkkrp/cue-sheet/issues).
+
+Pull requests are also welcome and will be reviewed quickly.
+
 ## License
 
 Copyright © 2016 Mark Karpov
