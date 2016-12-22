@@ -10,9 +10,8 @@
 -- Types describing structure of a CUE sheet. You probably want to import
 -- "Text.CueSheet" instead.
 
-{-# LANGUAGE CPP                #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Text.CueSheet.Types
   ( CueSheet (..)
@@ -38,11 +37,9 @@ where
 
 import Control.Monad.Catch
 import Data.Char (isDigit, isAscii, isLetter)
-import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid ((<>))
 import Data.Text (Text)
-import Data.Typeable (Typeable)
 import GHC.Generics
 import Numeric.Natural
 import Test.QuickCheck
@@ -71,7 +68,7 @@ data CueSheet = CueSheet
     -- ^ Number of the first track. Typically 1, but may be greater than 1.
   , cueFiles      :: !(NonEmpty CueFile)
     -- ^ Collection of files to be written.
-  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Generic)
 
 instance Arbitrary CueSheet where
   arbitrary = CueSheet
@@ -97,7 +94,7 @@ data CueFile = CueFile
     -- ^ Type of file.
   , cueFileTracks :: !(NonEmpty CueTrack)
     -- ^ Collection of tracks in the file.
-  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Generic)
 
 instance Arbitrary CueFile where
   arbitrary = CueFile
@@ -124,7 +121,7 @@ data CueFileType
     -- ^ Audio WAVE file (44.1 kHz, 16 bit stereo).
   | MP3
     -- ^ Audio MP3 file (44.1 kHz 16 bit stereo).
-  deriving (Show, Read, Eq, Ord, Bounded, Enum, Data, Typeable, Generic)
+  deriving (Show, Read, Eq, Ord, Bounded, Enum, Generic)
 
 instance Arbitrary CueFileType where
   arbitrary = elements [minBound..maxBound]
@@ -161,7 +158,7 @@ data CueTrack = CueTrack
     -- only index that's stored in the disc's table of contents.
   , cueTrackPostgap              :: !(Maybe CueTime)
     -- ^ Track's postgap.
-  } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  } deriving (Show, Eq, Ord, Generic)
 
 instance Arbitrary CueTrack where
   arbitrary = CueTrack
@@ -194,7 +191,7 @@ data CueTrackType
   | CueTrackMode2_2352 -- ^ CD-ROM XA Mode2 data.
   | CueTrackCdi2336    -- ^ CD-I Mode2 data.
   | CueTrackCdi2352    -- ^ CD-I Mode2 data.
-  deriving (Show, Read, Eq, Ord, Bounded, Enum, Data, Typeable, Generic)
+  deriving (Show, Read, Eq, Ord, Bounded, Enum, Generic)
 
 instance Arbitrary CueTrackType where
   arbitrary = elements [minBound..maxBound]
@@ -203,7 +200,7 @@ instance Arbitrary CueTrackType where
 -- contains number of frames. There is 75 frames in one second.
 
 newtype CueTime = CueTime Natural
-  deriving (Show, Read, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Read, Eq, Ord, Generic)
 
 instance Arbitrary CueTime where
   arbitrary = CueTime <$> arbitrary
@@ -244,7 +241,7 @@ showMmSsFf x = T.pack (printf "%02d:%02d:%02d" mm ss ff)
 -- characters must be numeric.
 
 newtype Mcn = Mcn Text
-  deriving (Eq, Ord, Data, Typeable, Generic)
+  deriving (Eq, Ord, Generic)
 
 instance Show Mcn where
   show = show . unMcn
@@ -272,7 +269,7 @@ unMcn (Mcn x) = x
 -- to escape them properly.
 
 newtype CueText = CueText Text
-  deriving (Eq, Ord, Data, Typeable, Generic)
+  deriving (Eq, Ord, Generic)
 
 instance Show CueText where
   show = show . unCueText
@@ -299,7 +296,7 @@ unCueText (CueText x) = x
 -- last seven are numeric only.
 
 newtype Isrc = Isrc Text
-  deriving (Eq, Ord, Data, Typeable, Generic)
+  deriving (Eq, Ord, Generic)
 
 instance Show Isrc where
   show = show . unIsrc
@@ -340,7 +337,7 @@ data CueSheetException
     -- ^ Provided text wasn't a valid CUE text.
   | InvalidIsrc Text
     -- ^ Provided text wasn't a valid ISRC.
-  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
+  deriving (Eq, Ord, Show, Read, Generic)
 
 instance Exception CueSheetException
 
