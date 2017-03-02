@@ -129,7 +129,7 @@ data Context = Context
 
 parseCueSheet
   :: String            -- ^ File name to include in error messages
-  -> BL.ByteString     -- ^ CUE sheet to parsec as a lazy 'BL.ByteString'
+  -> BL.ByteString     -- ^ CUE sheet to parse as a lazy 'BL.ByteString'
   -> Either (ParseError Char Eec) CueSheet -- ^ 'ParseError' or result
 parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
   where
