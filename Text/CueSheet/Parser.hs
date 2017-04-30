@@ -26,7 +26,7 @@ import Control.Applicative
 import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
@@ -439,11 +439,15 @@ cueTime = do
 
 withCheck :: (a -> Either CueParserFailure b) -> Parser a -> Parser b
 withCheck check p = do
-  r <- lookAhead p
+  cpos <- getPosition
+  npos <- fromMaybe cpos <$> getNextTokenPosition
+  r <- p
   case check r of
-    Left custom -> failure E.empty E.empty $
-      E.singleton (Eec Nothing (Just custom))
-    Right x -> x <$ p
+    Left custom -> do
+      setPosition npos
+      failure E.empty E.empty $
+        E.singleton (Eec Nothing (Just custom))
+    Right x -> return x
 
 -- | If the first argument is 'True' and we can parse the given command,
 -- fail pointing at the beginning of the command and report it as something
@@ -462,17 +466,13 @@ failAtIf shouldFail command = do
 -- help user find where the error happened.
 
 inTrack :: Natural -> Parser a -> Parser a
-inTrack n m = do
-  r <- observing m
-  case r of
-    Left ParseError {..} ->
-      failure errorUnexpected errorExpected $
+inTrack n = region f
+  where
+    f e@ParseError {..} =
         if E.null errorCustom
-          then E.singleton (Eec (Just n) Nothing)
-          else E.map f errorCustom
-        where
-          f (Eec mn x) = Eec (mn <|> Just n) x
-    Right x -> return x
+          then e { errorCustom = E.singleton (Eec (Just n) Nothing) }
+          else e { errorCustom = E.map g errorCustom }
+    g (Eec mn x) = Eec (mn <|> Just n) x
 
 -- | A labelled literal (a helper for common case).
 
