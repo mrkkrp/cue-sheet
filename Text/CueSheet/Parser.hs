@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- The modules contains just CUE sheet parser. You probably want to import
+-- The modules contains a CUE sheet parser. You probably want to import
 -- "Text.CueSheet" instead.
 
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -61,19 +61,28 @@ instance ShowErrorComponent Eec where
     maybe "" ((++ "\n") . showErrorComponent) mfailure ++
     maybe "" (\n -> "in declaration of the track " ++ show n) mtrack
 
--- | Enumeration of all failures that may happen during run of
+-- | The enumeration of all failures that may happen during running of
 -- 'parseCueSheet'.
 
 data CueParserFailure
   = CueParserFail String
+    -- ^ 'fail' was used (should not happen)
   | CueParserIndentation Ordering Pos Pos
+    -- ^ Incorrect indentation (should not happen)
   | CueParserInvalidCatalog Text
+    -- ^ We ran into an invalid media catalog number
   | CueParserInvalidCueText Text
+    -- ^ We ran into an invalid text literal
   | CueParserTrackOutOfOrder
+    -- ^ We spotted a track out of order
   | CueParserInvalidTrackIsrc Text
+    -- ^ We ran into an invalid ISRC
   | CueParserInvalidSeconds Natural
+    -- ^ We ran into an invalid number of seconds
   | CueParserInvalidFrames Natural
+    -- ^ We ran into an invalid number of frames
   | CueParserTrackIndexOutOfOrder
+    -- ^ We spotted a track index out of order
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance ShowErrorComponent CueParserFailure where
@@ -102,7 +111,7 @@ instance ShowErrorComponent CueParserFailure where
 type Parser a = StateT Context (Parsec Eec BL.ByteString) a
 
 -- | Context of parsing. This is passed around in 'StateT'. We need all of
--- this to signal parse errors on duplicate declaration of things that
+-- this to signal parse errors on duplicate declarations of things that
 -- should only be declared once according to description of the format, to
 -- validate track numbers, etc.
 
@@ -148,7 +157,7 @@ parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
       , contextIndices        = []
       , contextIndexCount     = 0 }
 
--- | Parse a 'CueSheet'. The result is not returned, but written in
+-- | Parse a 'CueSheet'. The result is not returned, but written in the
 -- 'Context'.
 
 pCueSheet :: Parser ()
@@ -314,7 +323,7 @@ pFlags = do
   failAtIf already "FLAGS"
   void (some pFlag) <* eol <* scn
 
--- | A helper data type.
+-- | A helper data type for track flags.
 
 data CueTrackFlag = DCP | FourCH | PRE | SCMS
 
@@ -461,9 +470,9 @@ failAtIf shouldFail command = do
     then empty
     else p
 
--- | Indicate that the inner parser belongs to declaration of track with
--- given index. The index of the track will be added to 'ParseError's to
--- help user find where the error happened.
+-- | Indicate that the inner parser belongs to declaration of a track with
+-- the given index. The index of the track will be added to 'ParseError's to
+-- help the user find where the error happened.
 
 inTrack :: Natural -> Parser a -> Parser a
 inTrack n = region f

@@ -18,17 +18,16 @@ The library allows to construct, render, and parse CUE sheets.
 > authoring applications and media players.
 
 [Read more on Wikipedia](https://en.wikipedia.org/wiki/Cue_sheet_(computing)).
-The description of the format can be
-found
+The description of the format can be found
 [here](https://wayback.archive.org/web/20070614044112/http://www.goldenhawk.com/download/cdrwin.pdf),
-scroll to Appendix A (it's closest we get to a “specification”).
+scroll to the appendix A (it's closest we get to a “specification”).
 
 ## Quick start
 
 [Read the Haddocks](https://hackage.haskell.org/package/cue-sheet). In
 short, you parse a `CueSheet` with `parseCueSheet` function and render a
-`CueSheet` with `renderCueSheet` function, pretty straightforward, eh? Of
-course you still can construct a `CueSheet` manually. The data types are
+`CueSheet` with `renderCueSheet` function—pretty straightforward, eh? Of
+course, you still can construct a `CueSheet` manually. The data types are
 defined in such a way that incorrect CUE sheets are impossible to represent.
 
 ## Contribution

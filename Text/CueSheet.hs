@@ -11,9 +11,6 @@
 -- types are defined in such a way that incorrect CUE sheets are impossible
 -- to represent. See 'parseCueSheet' for parsing of plain text CUE sheet
 -- files and 'renderCueSheet' for rendering.
---
--- If you need to embed\/extract a CUE sheet in a FLAC file, see the @flac@
--- package <https://hackage.haskell.org/package/flac>.
 
 module Text.CueSheet
   ( -- * Types

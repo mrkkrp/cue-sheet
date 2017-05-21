@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- The module contains just CUE sheet render. You probably want to import
+-- The module contains a CUE sheet render. You probably want to import
 -- "Text.CueSheet" instead.
 
 {-# LANGUAGE FlexibleContexts  #-}
@@ -34,7 +34,7 @@ import qualified Data.List.NonEmpty      as NE
 import qualified Data.Text               as T
 import qualified Data.Text.Encoding      as T
 
--- | Render a CUE sheet to a lazy 'BL.ByteString'. All 'Text' values in the
+-- | Render a CUE sheet as a lazy 'BL.ByteString'. All 'Text' values in the
 -- 'CueSheet' will be UTF-8 encoded.
 
 renderCueSheet
@@ -136,7 +136,7 @@ renderCueSheet csrf CueSheet {..} =
 formatNat :: Natural -> Text
 formatNat = T.pack . printf "%02d"
 
--- | Render file type as per the CUE specs.
+-- | Render a 'CueFileType' as per the CUE specs.
 
 renderFileType :: CueFileType -> Text
 renderFileType Binary   = "BINARY"
@@ -145,7 +145,7 @@ renderFileType Aiff     = "AIFF"
 renderFileType Wave     = "WAVE"
 renderFileType MP3      = "MP3"
 
--- | Render track type as per the CUE specs.
+-- | Render a 'CueTrackType' as per the CUE specs.
 
 renderTrackType :: CueTrackType -> Text
 renderTrackType CueTrackAudio      = "AUDIO"

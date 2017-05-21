@@ -197,7 +197,7 @@ instance Arbitrary CueTrackType where
   arbitrary = elements [minBound..maxBound]
 
 -- | This datatype is used to indicate duration and position in time. It
--- contains number of frames. There is 75 frames in one second.
+-- contains number of frames. There are 75 frames in one second.
 
 newtype CueTime = CueTime Natural
   deriving (Show, Read, Eq, Ord, Generic)
@@ -307,7 +307,7 @@ instance Arbitrary Isrc where
     post <- vectorOf 7 (arbitrary `suchThat` isDigit)
     (return . Isrc . T.pack) (pre <> post)
 
--- | Make a 'Isrc', if the provided 'Text' value is not a valid ISRC, throw
+-- | Make an 'Isrc', if the provided 'Text' value is not a valid ISRC, throw
 -- the 'InvalidIsrc' exception.
 
 mkIsrc :: MonadThrow m => Text -> m Isrc
@@ -323,7 +323,7 @@ mkIsrc x =
 unIsrc :: Isrc -> Text
 unIsrc (Isrc x) = x
 
--- | Exception type for bad things that may happen while you use the
+-- | Exception type for the bad things that may happen while you use the
 -- library.
 
 data CueSheetException
@@ -344,13 +344,13 @@ instance Exception CueSheetException
 ----------------------------------------------------------------------------
 -- Helpers
 
--- | Check if given 'Text' is a valid MCN.
+-- | Check if the given 'Text' is a valid MCN.
 
 isValidMcn :: Text -> Bool
 isValidMcn x = T.length x == 13 && T.all isDigit x
 
--- | Check if given 'Text' has valid length to be used in a CUE sheet as
--- performer, title, etc.
+-- | Check if the given 'Text' has valid length and contents to be used in a
+-- CUE sheet as performer, title, etc.
 
 isValidCueText :: Text -> Bool
 isValidCueText x = l >= 1 && l <= 80 && T.all f x
