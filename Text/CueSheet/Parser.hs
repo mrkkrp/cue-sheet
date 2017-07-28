@@ -24,22 +24,24 @@ where
 
 import Control.Applicative
 import Control.Monad.State.Strict
+import Data.ByteString (ByteString)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust, fromMaybe)
+import Data.Set (Set)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
+import Data.Word (Word8)
 import GHC.Generics
 import Numeric.Natural
 import Text.CueSheet.Types
 import Text.Megaparsec
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy  as BL
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Set              as E
-import qualified Data.Text             as T
-import qualified Data.Text.Encoding    as T
-import qualified Text.Megaparsec.Lexer as L
+import Text.Megaparsec.Byte
+import qualified Data.List.NonEmpty         as NE
+import qualified Data.Set                   as E
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
+import qualified Text.Megaparsec.Byte.Lexer as L
 
 ----------------------------------------------------------------------------
 -- Types
@@ -47,28 +49,20 @@ import qualified Text.Megaparsec.Lexer as L
 -- | Extended error component with support for storing number of track
 -- declaration in which a parsing error has occurred.
 
-data Eec = Eec (Maybe Natural) (Maybe CueParserFailure)
+data Eec = Eec (Maybe Natural) CueParserFailure
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
-instance ErrorComponent Eec where
-  representFail                  =
-    Eec Nothing . Just . CueParserFail
-  representIndentation ord p0 p1 =
-    (Eec Nothing . Just) (CueParserIndentation ord p0 p1)
-
 instance ShowErrorComponent Eec where
-  showErrorComponent (Eec mtrack mfailure) =
-    maybe "" ((++ "\n") . showErrorComponent) mfailure ++
+  showErrorComponent (Eec mtrack failure') =
+    showErrorComponent failure' ++ "\n" ++
     maybe "" (\n -> "in declaration of the track " ++ show n) mtrack
 
 -- | The enumeration of all failures that may happen during running of
 -- 'parseCueSheet'.
 
 data CueParserFailure
-  = CueParserFail String
-    -- ^ 'fail' was used (should not happen)
-  | CueParserIndentation Ordering Pos Pos
-    -- ^ Incorrect indentation (should not happen)
+  = CueParserTrivialError (Maybe (ErrorItem Word8)) (Set (ErrorItem Word8))
+    -- ^ A wrapper for a trivial error
   | CueParserInvalidCatalog Text
     -- ^ We ran into an invalid media catalog number
   | CueParserInvalidCueText Text
@@ -87,10 +81,9 @@ data CueParserFailure
 
 instance ShowErrorComponent CueParserFailure where
   showErrorComponent = \case
-    CueParserFail msg ->
-      showErrorComponent (DecFail msg)
-    CueParserIndentation ord p0 p1 ->
-      showErrorComponent (DecIndentation ord p0 p1)
+    CueParserTrivialError us es ->
+      init $ parseErrorTextPretty
+        (TrivialError undefined us es :: ParseError Word8 Eec)
     CueParserInvalidCatalog txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid Media Catalog Number"
     CueParserInvalidCueText txt ->
@@ -104,11 +97,11 @@ instance ShowErrorComponent CueParserFailure where
     CueParserInvalidFrames n ->
       "\"" ++ show n ++ "\" is not a valid number of frames"
     CueParserTrackIndexOutOfOrder ->
-      "this index apprears out of order"
+      "this index appears out of order"
 
 -- | Type of parser we use here, it's not public.
 
-type Parser a = StateT Context (Parsec Eec BL.ByteString) a
+type Parser a = StateT Context (Parsec Eec ByteString) a
 
 -- | Context of parsing. This is passed around in 'StateT'. We need all of
 -- this to signal parse errors on duplicate declarations of things that
@@ -138,8 +131,8 @@ data Context = Context
 
 parseCueSheet
   :: String            -- ^ File name to include in error messages
-  -> BL.ByteString     -- ^ CUE sheet to parse as a lazy 'BL.ByteString'
-  -> Either (ParseError Char Eec) CueSheet -- ^ 'ParseError' or result
+  -> ByteString     -- ^ CUE sheet to parse as a lazy 'BL.ByteString'
+  -> Either (ParseError Word8 Eec) CueSheet -- ^ 'ParseError' or result
 parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
   where
     initContext = Context
@@ -183,7 +176,7 @@ pHeaderItem = choice
 pCatalog :: Parser ()
 pCatalog = do
   already <- gets (isJust . cueCatalog . contextCueSheet)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkMcn x of
           Nothing -> Left (CueParserInvalidCatalog x)
           Just mcn -> Right mcn
@@ -194,14 +187,14 @@ pCatalog = do
 pCdTextFile :: Parser ()
 pCdTextFile = do
   already <- gets (isJust . cueCdTextFile . contextCueSheet)
-  cdTextFile <- decodeUtf8 <$> labelledLit already Right "CDTEXTFILE"
+  cdTextFile <- T.decodeUtf8 <$> labelledLit already Right "CDTEXTFILE"
   modify $ \x -> x { contextCueSheet = (contextCueSheet x)
     { cueCdTextFile = Just (T.unpack cdTextFile) } }
 
 pPerformer :: Parser ()
 pPerformer = do
   already <- gets (isJust . cuePerformer . contextCueSheet)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -212,7 +205,7 @@ pPerformer = do
 pTitle :: Parser ()
 pTitle = do
   already <- gets (isJust . cueTitle . contextCueSheet)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -223,7 +216,7 @@ pTitle = do
 pSongwriter :: Parser ()
 pSongwriter = do
   already <- gets (isJust . cueSongwriter . contextCueSheet)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -234,12 +227,12 @@ pSongwriter = do
 pRem :: Parser ()
 pRem = do
   void (symbol "REM")
-  manyTill anyChar eol *> scn
+  takeWhileP (Just "character") (/= 10) *> char 10 *> scn
 
 pFile :: Parser ()
 pFile = do
   void (symbol "FILE")
-  filename <- decodeUtf8 <$> lexeme stringLit
+  filename <- T.decodeUtf8 <$> lexeme stringLit
   let pFiletype = choice
         [ Binary   <$ symbol "BINARY"
         , Motorola <$ symbol "MOTOROLA"
@@ -267,7 +260,7 @@ pTrack = do
         if firstTrack || x == trackOffset + trackCount
           then Right x
           else Left CueParserTrackOutOfOrder
-  n <- withCheck f (fromIntegral <$> lexeme L.integer)
+  n <- withCheck f (lexeme L.decimal)
   let pTrackType = choice
         [ CueTrackAudio      <$ symbol "AUDIO"
         , CueTrackCdg        <$ symbol "CDG"
@@ -345,7 +338,7 @@ pFlag = do
 pIsrc :: Parser ()
 pIsrc = do
   already <- gets (isJust . cueTrackIsrc . head . contextTracks)
-  let f x' = let x = T.pack x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkIsrc x of
           Nothing -> Left (CueParserInvalidTrackIsrc x)
           Just isrc -> Right isrc
@@ -357,7 +350,7 @@ pIsrc = do
 pTrackPerformer :: Parser ()
 pTrackPerformer = do
   already <- gets (isJust . cueTrackPerformer . head . contextTracks)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -369,7 +362,7 @@ pTrackPerformer = do
 pTrackTitle :: Parser ()
 pTrackTitle = do
   already <- gets (isJust . cueTrackTitle . head . contextTracks)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -381,7 +374,7 @@ pTrackTitle = do
 pTrackSongwriter :: Parser ()
 pTrackSongwriter = do
   already <- gets (isJust . cueTrackSongwriter . head . contextTracks)
-  let f x' = let x = decodeUtf8 x' in
+  let f x' = let x = T.decodeUtf8 x' in
         case mkCueText x of
           Nothing -> Left (CueParserInvalidCueText x)
           Just txt -> Right txt
@@ -421,7 +414,7 @@ pIndex n = do
 cueTime :: Parser CueTime
 cueTime = do
   minutes <- naturalLit
-  void (char ':')
+  void (char 58)
   let checkSeconds n =
         if n < 60
           then Right n
@@ -431,7 +424,7 @@ cueTime = do
           then Right n
           else Left (CueParserInvalidFrames n)
   seconds <- withCheck checkSeconds naturalLit
-  void (char ':')
+  void (char 58)
   frames  <- withCheck checkFrames  naturalLit
   case fromMmSsFf minutes seconds frames of
     Nothing -> empty -- NOTE must be always valid, we checked already
@@ -454,15 +447,14 @@ withCheck check p = do
   case check r of
     Left custom -> do
       setPosition npos
-      failure E.empty E.empty $
-        E.singleton (Eec Nothing (Just custom))
+      (fancyFailure . E.singleton . ErrorCustom) (Eec Nothing custom)
     Right x -> return x
 
 -- | If the first argument is 'True' and we can parse the given command,
 -- fail pointing at the beginning of the command and report it as something
 -- unexpected.
 
-failAtIf :: Bool -> String -> Parser ()
+failAtIf :: Bool -> ByteString -> Parser ()
 failAtIf shouldFail command = do
   let p = void (symbol command)
   lookAhead p
@@ -477,18 +469,18 @@ failAtIf shouldFail command = do
 inTrack :: Natural -> Parser a -> Parser a
 inTrack n = region f
   where
-    f e@ParseError {..} =
-        if E.null errorCustom
-          then e { errorCustom = E.singleton (Eec (Just n) Nothing) }
-          else e { errorCustom = E.map g errorCustom }
-    g (Eec mn x) = Eec (mn <|> Just n) x
+    f (TrivialError pos us es) = FancyError pos . E.singleton $
+      ErrorCustom (Eec (Just n) (CueParserTrivialError us es))
+    f (FancyError pos xs) = FancyError pos (E.map g xs)
+    g (ErrorCustom (Eec mn x)) = ErrorCustom (Eec (mn <|> Just n) x)
+    g e = e
 
 -- | A labelled literal (a helper for common case).
 
 labelledLit
   :: Bool              -- ^ Should we instantly fail when command is parsed?
-  -> (String -> Either CueParserFailure a) -- ^ How to judge the result
-  -> String            -- ^ Name of the command to grab
+  -> (ByteString -> Either CueParserFailure a) -- ^ How to judge the result
+  -> ByteString        -- ^ Name of the command to grab
   -> Parser a
 labelledLit shouldFail check command = do
   failAtIf shouldFail command
@@ -496,20 +488,23 @@ labelledLit shouldFail check command = do
 
 -- | String literal with support for quotation.
 
-stringLit :: Parser String
-stringLit = quoted <|> unquoted
+stringLit :: Parser ByteString
+stringLit = (quoted <?> "quoted string literal")
+  <|> (unquoted <?> "unquoted string literal")
   where
-    quoted   = char '\"' *> manyTill (noneOf ("\n" :: String)) (char '\"')
-    unquoted = many (noneOf ("\n\t\r " :: String))
+    quoted   = char 34 *> takeWhileP Nothing f <* char 34
+    unquoted = takeWhileP Nothing g
+    f x      = x /= 10 && x /= 34
+    g x      = x /= 10 && x /= 9 && x /= 13 && x /= 32
 
 -- | Parse a 'Natural'.
 
 naturalLit :: Parser Natural
-naturalLit = fromIntegral <$> L.integer
+naturalLit = L.decimal
 
 -- | Case-insensitive symbol parser.
 
-symbol :: String -> Parser String
+symbol :: ByteString -> Parser ByteString
 symbol s = string' s <* notFollowedBy alphaNumChar <* sc
 
 -- | A wrapper for lexemes.
@@ -520,12 +515,14 @@ lexeme = L.lexeme sc
 -- | Space consumer (eats newlines).
 
 scn :: Parser ()
-scn = L.space (void spaceChar) empty empty
+scn = L.space space1 empty empty
 
 -- | Space consumer (does not eat newlines).
 
 sc :: Parser ()
-sc = L.space (void $ oneOf ("\t " :: String)) empty empty
+sc = L.space (void $ takeWhile1P Nothing f) empty empty
+  where
+    f x = x == 32 || x == 9
 
 -- | Determine by 'CueTrack' if we have already parsed FLAGS command.
 
@@ -541,11 +538,6 @@ seenFlags CueTrack {..} = or
 changingFirstOf :: [a] -> (a -> a) -> [a]
 changingFirstOf [] _ = []
 changingFirstOf (x:xs) f = f x : xs
-
--- | Decode UTF-8 encoded 'B.ByteString' represented as a 'String'.
-
-decodeUtf8 :: String -> Text
-decodeUtf8 = T.decodeUtf8 . B8.pack
 
 ----------------------------------------------------------------------------
 -- Dummies

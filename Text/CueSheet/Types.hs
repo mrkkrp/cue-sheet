@@ -44,11 +44,8 @@ import GHC.Generics
 import Numeric.Natural
 import Test.QuickCheck
 import Text.Printf (printf)
-import qualified Data.Text          as T
-
-#if !MIN_VERSION_QuickCheck(2,9,0)
 import qualified Data.List.NonEmpty as NE
-#endif
+import qualified Data.Text          as T
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
@@ -77,12 +74,8 @@ instance Arbitrary CueSheet where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    <*> (arbitrary `suchThat` (> 0))
-#if MIN_VERSION_QuickCheck(2,9,0)
-    <*> scaleDown arbitrary
-#else
+    <*> (fromInteger . getPositive <$> arbitrary)
     <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
-#endif
 
 -- | A file to be written. Single file can be divided into one or more
 -- tracks (see 'CueTrack').
@@ -100,11 +93,7 @@ instance Arbitrary CueFile where
   arbitrary = CueFile
     <$> filepath
     <*> arbitrary
-#if MIN_VERSION_QuickCheck(2,9,0)
-    <*> scaleDown arbitrary
-#else
     <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
-#endif
 
 -- | Enumeration of audio or file's data types.
 
@@ -173,11 +162,7 @@ instance Arbitrary CueTrack where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-#if MIN_VERSION_QuickCheck(2,9,0)
-    <*> scaleDown arbitrary
-#else
     <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
-#endif
     <*> arbitrary
 
 -- | Track datatype.
@@ -203,7 +188,7 @@ newtype CueTime = CueTime Natural
   deriving (Show, Read, Eq, Ord, Generic)
 
 instance Arbitrary CueTime where
-  arbitrary = CueTime <$> arbitrary
+  arbitrary = CueTime . fromInteger . getNonNegative <$> arbitrary
 
 -- | Construct 'CueTime' from minutes, seconds, and frames. There are 75
 -- frames per second. If number of seconds or frames is invalid,
