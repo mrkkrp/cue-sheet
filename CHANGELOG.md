@@ -1,3 +1,12 @@
+## Cue sheet 1.0.0
+
+* Uses Megaparsec 6.
+
+* Adjusted the `Eec` type to use it with Megaparsec 6.
+
+* The `parseCueSheet` function now accepts strict `ByteString` instead of
+  lazy one.
+
 ## CUE sheet 0.1.1
 
 * Improved documentation.
