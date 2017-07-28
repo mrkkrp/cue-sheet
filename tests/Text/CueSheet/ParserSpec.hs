@@ -5,32 +5,35 @@ module Text.CueSheet.ParserSpec
 where
 
 import Control.Monad.Catch
+import Data.Char (ord)
 import Data.Monoid ((<>))
+import Data.Word (Word8)
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.CueSheet.Parser
 import Text.CueSheet.Types
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.List.NonEmpty   as NE
+import Text.Megaparsec
+import qualified Data.ByteString    as B
+import qualified Data.List.NonEmpty as NE
 
 spec :: Spec
 spec =
   describe "parseCueSheet" $ do
     it "correctly deals with whitespace" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-whitespace.cue"
+      bs <- B.readFile "cue-sheet-samples/parser-whitespace.cue"
       sheet <- testSheet
       parseCueSheet "" bs `shouldParse` sheet
     it "parses commands case-insensitively" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-case-insensitivity.cue"
+      bs <- B.readFile "cue-sheet-samples/parser-case-insensitivity.cue"
       sheet <- testSheet
       parseCueSheet "" bs `shouldParse` sheet
     it "handles comments properly" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-comments.cue"
+      bs <- B.readFile "cue-sheet-samples/parser-comments.cue"
       sheet <- testSheet
       parseCueSheet "" bs `shouldParse` sheet
     it "at least one file should be declared" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-missing-file.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-missing-file.cue"
+      let es = foldMap (etoks . tow)
             [ "CATALOG"
             , "CDTEXTFILE"
             , "FILE"
@@ -41,105 +44,99 @@ spec =
       parseCueSheet "" bs `shouldFailWith`
         err (posN (70 :: Int) bs) (ueof <> es)
     it "at least one track should be declared" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-missing-track.cue"
+      bs <- B.readFile "cue-sheet-samples/parser-missing-track.cue"
       parseCueSheet "" bs `shouldFailWith`
-        err (posN (110 :: Int) bs) (ueof <> etoks "REM" <> etoks "TRACK")
+        err (posN (110 :: Int) bs) (ueof <> etoks (tow "REM") <> etoks (tow "TRACK"))
     it "at least one non-zero index should be declared" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-missing-index.cue"
-      let inTrack1 = cstm (Eec (Just 1) Nothing)
+      bs <- B.readFile "cue-sheet-samples/parser-missing-index.cue"
+      let e = wrappedTrivial (ueof <> etoks (tow "INDEX") <> etoks (tow "REM"))
       parseCueSheet "" bs `shouldFailWith`
-        err (posN (180 :: Int) bs)
-          (ueof <> etoks "INDEX" <> etoks "REM" <> inTrack1)
+        errFancy (posN (180 :: Int) bs) (cstm (Eec (Just 1) e))
     it "parses a normal CUE file without issues" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-normal.cue"
+      bs <- B.readFile "cue-sheet-samples/parser-normal.cue"
       sheet <- normalCueSheet
       parseCueSheet "" bs `shouldParse` sheet
     it "rejects invalid catalog number" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-invalid-catalog.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (8 :: Int) bs)
-        (cstm (Eec Nothing (Just $ CueParserInvalidCatalog "123")))
+      bs <- B.readFile "cue-sheet-samples/parser-invalid-catalog.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (8 :: Int) bs)
+        (cstm (Eec Nothing (CueParserInvalidCatalog "123")))
     it "rejects invalid CUE text" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-invalid-text.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (10 :: Int) bs)
-        (cstm (Eec Nothing (Just $ CueParserInvalidCueText "")))
+      bs <- B.readFile "cue-sheet-samples/parser-invalid-text.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (10 :: Int) bs)
+        (cstm (Eec Nothing (CueParserInvalidCueText "")))
     it "detects and reports tracks that appear out of order" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-track-out-of-order.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (182 :: Int) bs)
-        (cstm (Eec Nothing (Just CueParserTrackOutOfOrder)))
+      bs <- B.readFile "cue-sheet-samples/parser-track-out-of-order.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (182 :: Int) bs)
+        (cstm (Eec Nothing CueParserTrackOutOfOrder))
     it "rejects invalid ISRC values" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-invalid-isrc.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (161 :: Int) bs)
-        (cstm (Eec (Just 3) (Just (CueParserInvalidTrackIsrc "123"))))
+      bs <- B.readFile "cue-sheet-samples/parser-invalid-isrc.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (161 :: Int) bs)
+        (cstm (Eec (Just 3) (CueParserInvalidTrackIsrc "123")))
     it "rejects invalid number of seconds" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-invalid-seconds.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (168 :: Int) bs)
-        (cstm (Eec (Just 1) (Just (CueParserInvalidSeconds 61))))
+      bs <- B.readFile "cue-sheet-samples/parser-invalid-seconds.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (168 :: Int) bs)
+        (cstm (Eec (Just 1) (CueParserInvalidSeconds 61)))
     it "rejects invalid number of frames" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-invalid-frames.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (171 :: Int) bs)
-        (cstm (Eec (Just 1) (Just (CueParserInvalidFrames 77))))
+      bs <- B.readFile "cue-sheet-samples/parser-invalid-frames.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (171 :: Int) bs)
+        (cstm (Eec (Just 1) (CueParserInvalidFrames 77)))
     it "detects and reports indices that appear out of order" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-index-out-of-order.cue"
-      parseCueSheet "" bs `shouldFailWith` err (posN (162 :: Int) bs)
-        (cstm (Eec (Just 1) (Just CueParserTrackIndexOutOfOrder)))
+      bs <- B.readFile "cue-sheet-samples/parser-index-out-of-order.cue"
+      parseCueSheet "" bs `shouldFailWith` errFancy (posN (162 :: Int) bs)
+        (cstm (Eec (Just 1) CueParserTrackIndexOutOfOrder))
     it "rejects duplicate CATALOG command" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-catalog.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-catalog.cue"
+      let es = utoks (tow "CATA") <> foldMap (etoks . tow)
             [ "CDTEXTFILE"
             , "FILE"
             , "PERFORMER"
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (22 :: Int) bs)
-        (utok 'C' <> es)
+      parseCueSheet "" bs `shouldFailWith` err (posN (22 :: Int) bs) es
     it "rejects duplicate CDTEXTFILE command" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-cdtextfile.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-cdtextfile.cue"
+      let es = utoks (tow "CDTE") <> foldMap (etoks . tow)
             [ "CATALOG"
             , "FILE"
             , "PERFORMER"
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (23 :: Int) bs)
-        (utok 'C' <> es)
+      parseCueSheet "" bs `shouldFailWith` err (posN (23 :: Int) bs) es
     it "rejects duplicate PERFORMER command" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-performer.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-performer.cue"
+      let es = utoks (tow "PERF") <> foldMap (etoks . tow)
             [ "CATALOG"
             , "CDTEXTFILE"
             , "FILE"
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (30 :: Int) bs)
-        (utok 'P' <> es)
+      parseCueSheet "" bs `shouldFailWith` err (posN (30 :: Int) bs) es
     it "rejects duplicate TITLE command" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-title.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-title.cue"
+      let es = utoks (tow "TITL") <> foldMap (etoks . tow)
             [ "CATALOG"
             , "CDTEXTFILE"
             , "FILE"
             , "PERFORMER"
             , "REM"
             , "SONGWRITER" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (17 :: Int) bs)
-        (utok 'T' <> es)
+      parseCueSheet "" bs `shouldFailWith` err (posN (17 :: Int) bs) es
     it "rejects duplicate SONGWRITER command" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-songwriter.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-songwriter.cue"
+      let es = utoks (tow "SONG") <> foldMap (etoks . tow)
             [ "CATALOG"
             , "CDTEXTFILE"
             , "FILE"
             , "PERFORMER"
             , "REM"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (18 :: Int) bs)
-        (utok 'S' <> es)
+      parseCueSheet "" bs `shouldFailWith` err (posN (18 :: Int) bs) es
     it "rejects duplicate FLAGS command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-flags.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-flags.cue"
+      let es = wrappedTrivial $ utoks (tow "FLAGS") <> foldMap (etoks . tow)
             [ "INDEX"
             , "ISRC"
             , "PERFORMER"
@@ -147,11 +144,11 @@ spec =
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (144 :: Int) bs)
-        (utok 'F' <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (144 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate ISRC command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-isrc.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-isrc.cue"
+      let es = wrappedTrivial $ utoks (tow "ISRC ") <> foldMap (etoks . tow)
             [ "FLAGS"
             , "INDEX"
             , "PERFORMER"
@@ -159,11 +156,11 @@ spec =
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (152 :: Int) bs)
-        (utok 'I' <> utoks "IS" <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (152 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate PERFORMER command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-performer.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-performer.cue"
+      let es = wrappedTrivial $ utoks (tow "PERFO") <> foldMap (etoks . tow)
             [ "FLAGS"
             , "INDEX"
             , "ISRC"
@@ -171,11 +168,11 @@ spec =
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (156 :: Int) bs)
-        (utok 'P' <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (156 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate TITLE command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-title.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-title.cue"
+      let es = wrappedTrivial $ utoks (tow "TITLE") <> foldMap (etoks . tow)
             [ "FLAGS"
             , "INDEX"
             , "ISRC"
@@ -183,11 +180,11 @@ spec =
             , "PREGAP"
             , "REM"
             , "SONGWRITER" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (146 :: Int) bs)
-        (utok 'T' <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (146 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate SONGWRITER command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-songwriter.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-songwriter.cue"
+      let es = wrappedTrivial $ utoks (tow "SONGW") <> foldMap (etoks . tow)
             [ "FLAGS"
             , "INDEX"
             , "ISRC"
@@ -195,11 +192,11 @@ spec =
             , "PREGAP"
             , "REM"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (150 :: Int) bs)
-        (utok 'S' <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (150 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate PREGAP command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-pregap.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-pregap.cue"
+      let es = wrappedTrivial $ utoks (tow "PREGA") <> foldMap (etoks . tow)
             [ "FLAGS"
             , "INDEX"
             , "ISRC"
@@ -207,16 +204,16 @@ spec =
             , "REM"
             , "SONGWRITER"
             , "TITLE" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (176 :: Int) bs)
-        (utok 'P' <> es <> cstm (Eec (Just 1) Nothing))
+      parseCueSheet "" bs `shouldFailWith`
+        errFancy (posN (176 :: Int) bs) (cstm (Eec (Just 1) es))
     it "rejects duplicate POSTGAP command (in track)" $ do
-      bs <- BL.readFile "cue-sheet-samples/parser-duplicate-track-postgap.cue"
-      let es = foldMap etoks
+      bs <- B.readFile "cue-sheet-samples/parser-duplicate-track-postgap.cue"
+      let es = foldMap (etoks . tow)
             [ "FILE"
             , "REM"
             , "TRACK" ]
-      parseCueSheet "" bs `shouldFailWith` err (posN (199 :: Int) bs)
-        (utok 'P' <> es <> eeof)
+      parseCueSheet "" bs `shouldFailWith`
+        err (posN (199 :: Int) bs) (utok 80 <> es <> eeof)
 
 testSheet :: MonadThrow m => m CueSheet
 testSheet = do
@@ -389,3 +386,23 @@ normalCueSheet = do
             , cueTrackPregapIndex          = Nothing
             , cueTrackIndices              = NE.fromList [CueTime 191625]
             , cueTrackPostgap              = Nothing } ] } ] }
+
+-- | Construct 'CueParserFailure' from given @'ET' 'Word8'@ thing.
+
+wrappedTrivial :: ET Word8 -> CueParserFailure
+wrappedTrivial xs =
+  case err posI xs of
+    TrivialError _ us es -> CueParserTrivialError us es
+    _                    -> error "Ooops!"
+
+-- | Convert 'String' to a list of bytes.
+
+tow :: String -> [Word8]
+tow = fmap (fromIntegral . ord)
+{-# INLINE tow #-}
+
+-- | Quickly make a custom error component.
+
+cstm :: e -> EF e
+cstm = fancy . ErrorCustom
+{-# INLINE cstm #-}
