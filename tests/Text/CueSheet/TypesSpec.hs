@@ -14,14 +14,17 @@ spec =
   describe "fromMmSsFf" $ do
     context "if number of seconds is greater than 59" $
       it "throws the correct exception" $
-        property $ \mm ss' ff -> do
-          let ss = ss' + 60
+        property $ \(NonNegative mm') (NonNegative ss') (NonNegative ff') -> do
+          let mm = fromInteger mm'
+              ss = fromInteger ss' + 60
+              ff = fromInteger ff'
           fromMmSsFf mm ss ff `shouldThrow` (== InvalidSeconds ss)
     context "if number of frames is greater than 74" $
       it "throws the correct exception" $
-        property $ \mm ss' ff' -> do
-          let ss = ss' `rem` 60
-              ff = ff' + 75
+        property $ \(NonNegative mm') (NonNegative ss') (NonNegative ff') -> do
+          let mm = fromInteger mm'
+              ss = fromInteger ss' `rem` 60
+              ff = fromInteger ff' + 75
           fromMmSsFf mm ss ff `shouldThrow` (== InvalidFrames ff)
     context "if all input values are valid" $
       it "produces the correct result" $ do
