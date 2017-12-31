@@ -1,3 +1,7 @@
+## Cue sheet 1.0.1
+
+* Allow Megaparsec 6.4.0.
+
 ## Cue sheet 1.0.0
 
 * Uses Megaparsec 6.

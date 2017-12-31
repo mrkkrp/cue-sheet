@@ -22,7 +22,6 @@ module Text.CueSheet.Parser
   , Eec (..) )
 where
 
-import Control.Applicative
 import Control.Monad.State.Strict
 import Data.ByteString (ByteString)
 import Data.Data (Data)
