@@ -1,3 +1,7 @@
+## Cue sheet 2.0.0
+
+* Uses Megaparsec 7. The `parseCueSheet` now returns `ParseErrorBundle`.
+
 ## Cue sheet 1.0.1
 
 * Allow Megaparsec 6.4.0.

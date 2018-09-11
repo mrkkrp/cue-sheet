@@ -15,6 +15,7 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 module Text.CueSheet.Parser
   ( parseCueSheet
@@ -26,7 +27,7 @@ import Control.Monad.State.Strict
 import Data.ByteString (ByteString)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust)
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -82,7 +83,7 @@ instance ShowErrorComponent CueParserFailure where
   showErrorComponent = \case
     CueParserTrivialError us es ->
       init $ parseErrorTextPretty
-        (TrivialError undefined us es :: ParseError Word8 Eec)
+        (TrivialError undefined us es :: ParseError ByteString Eec)
     CueParserInvalidCatalog txt ->
       "the value \"" ++ T.unpack txt ++ "\" is not a valid Media Catalog Number"
     CueParserInvalidCueText txt ->
@@ -131,7 +132,7 @@ data Context = Context
 parseCueSheet
   :: String            -- ^ File name to include in error messages
   -> ByteString     -- ^ CUE sheet to parse as a lazy 'BL.ByteString'
-  -> Either (ParseError Word8 Eec) CueSheet -- ^ 'ParseError' or result
+  -> Either (ParseErrorBundle ByteString Eec) CueSheet -- ^ 'ParseError' or result
 parseCueSheet = parse (contextCueSheet <$> execStateT pCueSheet initContext)
   where
     initContext = Context
@@ -440,12 +441,11 @@ cueTime = do
 
 withCheck :: (a -> Either CueParserFailure b) -> Parser a -> Parser b
 withCheck check p = do
-  cpos <- getPosition
-  npos <- fromMaybe cpos <$> getNextTokenPosition
+  o <- getOffset
   r <- p
   case check r of
     Left custom -> do
-      setPosition npos
+      setOffset o
       (fancyFailure . E.singleton . ErrorCustom) (Eec Nothing custom)
     Right x -> return x
 
