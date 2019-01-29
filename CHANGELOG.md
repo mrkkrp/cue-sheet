@@ -1,3 +1,8 @@
+## Cue sheet 2.0.1
+
+* Got rid of `data-default-class` dependency, which was completely
+  redundant.
+
 ## Cue sheet 2.0.0
 
 * Uses Megaparsec 7. The `parseCueSheet` now returns `ParseErrorBundle`.
