@@ -10,7 +10,6 @@
 -- Types describing structure of a CUE sheet. You probably want to import
 -- "Text.CueSheet" instead.
 
-{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Text.CueSheet.Types

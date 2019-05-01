@@ -1,3 +1,7 @@
+## Unreleased
+
+* Dropped support for GHC 7.10.
+
 ## Cue sheet 2.0.1
 
 * Got rid of `data-default-class` dependency, which was completely
