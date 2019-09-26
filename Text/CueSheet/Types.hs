@@ -10,6 +10,7 @@
 -- Types describing structure of a CUE sheet. You probably want to import
 -- "Text.CueSheet" instead.
 
+{-# LANGUAGE CPP           #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Text.CueSheet.Types
@@ -37,7 +38,6 @@ where
 import Control.Monad.Catch
 import Data.Char (isDigit, isAscii, isLetter)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Monoid ((<>))
 import Data.Text (Text)
 import GHC.Generics
 import Numeric.Natural
@@ -45,6 +45,10 @@ import Test.QuickCheck
 import Text.Printf (printf)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup ((<>))
+#endif
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 
