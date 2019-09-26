@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.CueSheet.ParserSpec
@@ -6,7 +7,6 @@ where
 
 import Control.Monad.Catch
 import Data.ByteString (ByteString)
-import Data.Monoid ((<>))
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.CueSheet.Parser
@@ -14,6 +14,10 @@ import Text.CueSheet.Types
 import Text.Megaparsec
 import qualified Data.ByteString    as B
 import qualified Data.List.NonEmpty as NE
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup ((<>))
+#endif
 
 spec :: Spec
 spec =
