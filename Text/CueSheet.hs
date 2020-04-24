@@ -11,34 +11,36 @@
 -- types are defined in such a way that incorrect CUE sheets are impossible
 -- to represent. See 'parseCueSheet' for parsing of plain text CUE sheet
 -- files and 'renderCueSheet' for rendering.
-
 module Text.CueSheet
   ( -- * Types
-    CueSheet (..)
-  , CueFile (..)
-  , CueFileType (..)
-  , CueTrack (..)
-  , CueTrackType (..)
-  , CueTime (..)
-  , fromMmSsFf
-  , toMmSsFf
-  , showMmSsFf
-  , Mcn
-  , mkMcn
-  , unMcn
-  , CueText
-  , mkCueText
-  , unCueText
-  , Isrc
-  , mkIsrc
-  , unIsrc
-  , CueSheetException (..)
+    CueSheet (..),
+    CueFile (..),
+    CueFileType (..),
+    CueTrack (..),
+    CueTrackType (..),
+    CueTime (..),
+    fromMmSsFf,
+    toMmSsFf,
+    showMmSsFf,
+    Mcn,
+    mkMcn,
+    unMcn,
+    CueText,
+    mkCueText,
+    unCueText,
+    Isrc,
+    mkIsrc,
+    unIsrc,
+    CueSheetException (..),
+
     -- * Parsing
-  , parseCueSheet
-  , CueParserFailure (..)
-  , Eec (..)
+    parseCueSheet,
+    CueParserFailure (..),
+    Eec (..),
+
     -- * Rendering
-  , renderCueSheet )
+    renderCueSheet,
+  )
 where
 
 import Text.CueSheet.Parser
