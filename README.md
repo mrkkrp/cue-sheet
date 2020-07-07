@@ -4,7 +4,7 @@
 [![Hackage](https://img.shields.io/hackage/v/cue-sheet.svg?style=flat)](https://hackage.haskell.org/package/cue-sheet)
 [![Stackage Nightly](http://stackage.org/package/cue-sheet/badge/nightly)](http://stackage.org/nightly/package/cue-sheet)
 [![Stackage LTS](http://stackage.org/package/cue-sheet/badge/lts)](http://stackage.org/lts/package/cue-sheet)
-[![Build Status](https://travis-ci.org/mrkkrp/cue-sheet.svg?branch=master)](https://travis-ci.org/mrkkrp/cue-sheet)
+![CI](https://github.com/mrkkrp/cue-sheet/workflows/CI/badge.svg?branch=master)
 
 The library allows to construct, render, and parse CUE sheets.
 
