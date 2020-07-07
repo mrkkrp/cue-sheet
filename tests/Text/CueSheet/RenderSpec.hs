@@ -15,16 +15,14 @@ import Text.CueSheet.Types
 spec :: Spec
 spec =
   describe "renderCueSheet" $ do
-    it "doesn't ever produce trailing whitespace"
-      $ property
-      $ \csrf cueSheet -> do
+    it "doesn't ever produce trailing whitespace" $
+      property $ \csrf cueSheet -> do
         let r = renderCueSheet csrf cueSheet
             f x = if csrf then BL.take (BL.length x - 1) x else x
         BL.split 10 r
           `shouldNotSatisfy` any ((" " `BL.isSuffixOf`) . f)
-    it "always ends with the specified new line sequence"
-      $ property
-      $ \csrf cueSheet -> do
+    it "always ends with the specified new line sequence" $
+      property $ \csrf cueSheet -> do
         let r = renderCueSheet csrf cueSheet
             eol = if csrf then "\r\n" else "\n"
         r `shouldSatisfy` (eol `BL.isSuffixOf`)
@@ -32,9 +30,8 @@ spec =
       expected <- BL.readFile "cue-sheet-samples/rendered0.cue"
       cueSheet <- testCueSheet
       renderCueSheet False cueSheet `shouldBe` expected
-    it "produces content that can be correctly parsed back"
-      $ property
-      $ \csrf cueSheet ->
+    it "produces content that can be correctly parsed back" $
+      property $ \csrf cueSheet ->
         parseCueSheet "" (BL.toStrict $ renderCueSheet csrf cueSheet)
           `shouldBe` Right cueSheet
 
