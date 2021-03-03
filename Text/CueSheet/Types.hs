@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 -- |
@@ -45,10 +44,6 @@ import GHC.Generics
 import Numeric.Natural
 import Test.QuickCheck
 import Text.Printf (printf)
-
-#if !MIN_VERSION_base(4,13,0)
-import Data.Semigroup ((<>))
-#endif
 
 -- | Entire CUE sheet, contains one or more files (see 'CueFile').
 data CueSheet = CueSheet
