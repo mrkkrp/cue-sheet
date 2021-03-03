@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.CueSheet.ParserSpec (spec) where
@@ -12,10 +11,6 @@ import Test.Hspec.Megaparsec
 import Text.CueSheet.Parser
 import Text.CueSheet.Types
 import Text.Megaparsec
-
-#if !MIN_VERSION_base(4,13,0)
-import Data.Semigroup ((<>))
-#endif
 
 spec :: Spec
 spec =
