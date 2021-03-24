@@ -7,9 +7,9 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- The module allows to construct, read, and write CUE sheets. The data
--- types are defined in such a way that incorrect CUE sheets are impossible
--- to represent. See 'parseCueSheet' for parsing of plain text CUE sheet
+-- The module allows us to construct, read, and write CUE sheets. The data
+-- types are defined in such a way that incorrect CUE sheets cannot be
+-- represented. See 'parseCueSheet' for parsing of plain text CUE sheet
 -- files and 'renderCueSheet' for rendering.
 module Text.CueSheet
   ( -- * Types

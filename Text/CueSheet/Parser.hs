@@ -502,11 +502,9 @@ cueTime = do
 ----------------------------------------------------------------------------
 -- Helpers
 
--- | Parse a thing and then check if it's OK conceptually. If it's not OK,
--- the error will be reported with position at the start of offending
--- lexeme, otherwise the lexeme is parsed as usual. Of course if the lexeme
--- has incorrect format, that is just reported and no additional check
--- happens.
+-- | Parse something and then check if it's OK. If it's not OK, the error
+-- will be reported with position at the start of the offending lexeme,
+-- otherwise the lexeme is parsed as usual.
 withCheck :: (a -> Either CueParserFailure b) -> Parser a -> Parser b
 withCheck check p = do
   o <- getOffset

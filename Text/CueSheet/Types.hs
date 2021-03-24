@@ -45,7 +45,7 @@ import Numeric.Natural
 import Test.QuickCheck
 import Text.Printf (printf)
 
--- | Entire CUE sheet, contains one or more files (see 'CueFile').
+-- | CUE sheet, contains one or more files (see 'CueFile').
 data CueSheet = CueSheet
   { -- | Disc's Media Catalog Number (see 'Mcn').
     cueCatalog :: !(Maybe Mcn),

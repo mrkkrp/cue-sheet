@@ -6,9 +6,10 @@
 [![Stackage LTS](http://stackage.org/package/cue-sheet/badge/lts)](http://stackage.org/lts/package/cue-sheet)
 ![CI](https://github.com/mrkkrp/cue-sheet/workflows/CI/badge.svg?branch=master)
 
-The library allows to construct, render, and parse CUE sheets.
+The library provides support for construction, rendering, and parsing of CUE
+sheets.
 
-## What is CUE sheet?
+## What is a CUE sheet?
 
 > A cue sheet, or cue file, is a metadata file which describes how the
 > tracks of a CD or DVD are laid out. Cue sheets are stored as plain text
@@ -20,14 +21,6 @@ The library allows to construct, render, and parse CUE sheets.
 The description of the format can be found
 [here](https://wayback.archive.org/web/20070614044112/http://www.goldenhawk.com/download/cdrwin.pdf),
 scroll to the appendix A (it's closest we get to a “specification”).
-
-## Quick start
-
-[Read the Haddocks](https://hackage.haskell.org/package/cue-sheet). In
-short, you parse a `CueSheet` with `parseCueSheet` function and render a
-`CueSheet` with `renderCueSheet` function—pretty straightforward, eh? Of
-course, you still can construct a `CueSheet` manually. The data types are
-defined in such a way that incorrect CUE sheets are impossible to represent.
 
 ## Contribution
 
