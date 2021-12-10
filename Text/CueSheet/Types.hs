@@ -213,9 +213,9 @@ fromMmSsFf mm ss ff
   | ss >= 60 = throwM (InvalidSeconds ss)
   | ff >= 75 = throwM (InvalidFrames ff)
   | otherwise =
-    let ss' = mm * 60 + ss
-        ff' = ss' * 75 + ff
-     in return (CueTime ff')
+      let ss' = mm * 60 + ss
+          ff' = ss' * 75 + ff
+       in return (CueTime ff')
 
 -- | Get minutes, seconds, and frames from a 'CueTime' value.
 toMmSsFf :: CueTime -> (Natural, Natural, Natural)
