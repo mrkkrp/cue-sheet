@@ -53,7 +53,8 @@ data Eec = Eec (Maybe Natural) CueParserFailure
 
 instance ShowErrorComponent Eec where
   showErrorComponent (Eec mtrack failure') =
-    showErrorComponent failure' ++ "\n"
+    showErrorComponent failure'
+      ++ "\n"
       ++ maybe "" (\n -> "in declaration of the track " ++ show n) mtrack
 
 -- | The enumeration of all failures that may happen during running of
