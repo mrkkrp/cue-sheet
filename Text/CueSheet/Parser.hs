@@ -23,7 +23,8 @@ module Text.CueSheet.Parser
   )
 where
 
-import Control.Monad.State.Strict
+import Control.Monad (void)
+import Control.Monad.State.Strict (StateT, execStateT, gets, modify)
 import Data.ByteString (ByteString)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
