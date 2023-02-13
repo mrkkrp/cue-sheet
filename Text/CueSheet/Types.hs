@@ -200,7 +200,7 @@ instance Arbitrary CueTime where
 -- frames per second. If number of seconds or frames is invalid,
 -- 'InvalidSeconds' or 'InvalidFrames' will be thrown.
 fromMmSsFf ::
-  MonadThrow m =>
+  (MonadThrow m) =>
   -- | Number of minutes, no limit here
   Natural ->
   -- | Number of seconds, 0–59 inclusive
@@ -243,7 +243,7 @@ instance Arbitrary Mcn where
 
 -- | Make a 'Mcn'. If the provided 'Text' value is not a valid MCN, throw
 -- the 'InvalidMcnException'.
-mkMcn :: MonadThrow m => Text -> m Mcn
+mkMcn :: (MonadThrow m) => Text -> m Mcn
 mkMcn x =
   if isValidMcn x
     then return (Mcn x)
@@ -268,7 +268,7 @@ instance Arbitrary CueText where
 
 -- | Make a 'CueText'. If the provided 'Text' value is not a valid CUE text,
 -- throw the 'InvalidCueText' exception.
-mkCueText :: MonadThrow m => Text -> m CueText
+mkCueText :: (MonadThrow m) => Text -> m CueText
 mkCueText x =
   if isValidCueText x
     then return (CueText x)
@@ -295,7 +295,7 @@ instance Arbitrary Isrc where
 
 -- | Make an 'Isrc', if the provided 'Text' value is not a valid ISRC, throw
 -- the 'InvalidIsrc' exception.
-mkIsrc :: MonadThrow m => Text -> m Isrc
+mkIsrc :: (MonadThrow m) => Text -> m Isrc
 mkIsrc x =
   if T.length x == 12
     && T.all isAlphaNum (T.take 5 x)

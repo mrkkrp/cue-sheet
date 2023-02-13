@@ -281,7 +281,7 @@ spec =
       parseCueSheet "" bs
         `shouldFailWith` err 199 (utok 80 <> es <> eeof)
 
-testSheet :: MonadThrow m => m CueSheet
+testSheet :: (MonadThrow m) => m CueSheet
 testSheet = do
   performer <- mkCueText "Faithless"
   title <- mkCueText "Live in Berlin"
@@ -323,7 +323,7 @@ testSheet = do
             ]
       }
 
-normalCueSheet :: MonadThrow m => m CueSheet
+normalCueSheet :: (MonadThrow m) => m CueSheet
 normalCueSheet = do
   performer <- mkCueText "Faithless"
   catalog <- mkMcn "1112223334445"
