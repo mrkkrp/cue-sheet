@@ -36,7 +36,7 @@ spec =
           `shouldBe` Right cueSheet
 
 -- | A manually constructed testing CUE sheet.
-testCueSheet :: MonadThrow m => m CueSheet
+testCueSheet :: (MonadThrow m) => m CueSheet
 testCueSheet = do
   mcn <- mkMcn "1112223334445"
   performer <- mkCueText "The Famous Foobar"
