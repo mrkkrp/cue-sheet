@@ -3,9 +3,9 @@
 module Text.CueSheet.RenderSpec (spec) where
 
 import Control.Monad.Catch
-import qualified Data.ByteString.Lazy as BL
+import Data.ByteString.Lazy qualified as BL
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Test.Hspec
 import Test.QuickCheck
 import Text.CueSheet.Parser

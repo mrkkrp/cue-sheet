@@ -37,9 +37,9 @@ where
 import Control.Monad.Catch
 import Data.Char (isAscii, isDigit, isLetter)
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import GHC.Generics
 import Numeric.Natural
 import Test.QuickCheck
