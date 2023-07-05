@@ -28,13 +28,13 @@ import Control.Monad.State.Strict (StateT, execStateT, gets, modify)
 import Data.ByteString (ByteString)
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (isJust)
 import Data.Set (Set)
-import qualified Data.Set as E
+import Data.Set qualified as E
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
 import GHC.Generics
@@ -42,7 +42,7 @@ import Numeric.Natural
 import Text.CueSheet.Types
 import Text.Megaparsec
 import Text.Megaparsec.Byte
-import qualified Text.Megaparsec.Byte.Lexer as L
+import Text.Megaparsec.Byte.Lexer qualified as L
 
 ----------------------------------------------------------------------------
 -- Types

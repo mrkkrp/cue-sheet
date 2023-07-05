@@ -37,7 +37,7 @@ library
         Text.CueSheet.Parser
         Text.CueSheet.Render
 
-    default-language: Haskell2010
+    default-language: GHC2021
     build-depends:
         QuickCheck >=2.4 && <3.0,
         base >=4.15 && <5.0,
@@ -69,7 +69,7 @@ test-suite tests
         Text.CueSheet.RenderSpec
         Text.CueSheet.TypesSpec
 
-    default-language:   Haskell2010
+    default-language:   GHC2021
     build-depends:
         QuickCheck >=2.4 && <3.0,
         base >=4.15 && <5.0,

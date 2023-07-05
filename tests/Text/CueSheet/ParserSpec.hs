@@ -4,8 +4,8 @@ module Text.CueSheet.ParserSpec (spec) where
 
 import Control.Monad.Catch
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as B
-import qualified Data.List.NonEmpty as NE
+import Data.ByteString qualified as B
+import Data.List.NonEmpty qualified as NE
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.CueSheet.Parser
