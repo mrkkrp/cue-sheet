@@ -35,7 +35,6 @@ import Data.Set qualified as E
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
-import Data.Typeable (Typeable)
 import Data.Word (Word8)
 import GHC.Generics
 import Numeric.Natural
@@ -50,7 +49,7 @@ import Text.Megaparsec.Byte.Lexer qualified as L
 -- | Extended error component with support for storing number of track
 -- declaration in which a parsing error has occurred.
 data Eec = Eec (Maybe Natural) CueParserFailure
-  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Generic)
 
 instance ShowErrorComponent Eec where
   showErrorComponent (Eec mtrack failure') =
@@ -77,7 +76,7 @@ data CueParserFailure
     CueParserInvalidFrames Natural
   | -- | We spotted a track index out of order
     CueParserTrackIndexOutOfOrder
-  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Generic)
 
 instance ShowErrorComponent CueParserFailure where
   showErrorComponent = \case
