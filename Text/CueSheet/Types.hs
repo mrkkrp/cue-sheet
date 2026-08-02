@@ -79,9 +79,9 @@ instance Arbitrary CueSheet where
 -- | A file to be written. Single file can be divided into one or more
 -- tracks (see 'CueTrack').
 data CueFile = CueFile
-  { -- | Name of file.
+  { -- | Name of the file.
     cueFileName :: !FilePath,
-    -- | Type of file.
+    -- | Type of the file.
     cueFileType :: !CueFileType,
     -- | Collection of tracks in the file.
     cueFileTracks :: !(NonEmpty CueTrack)
@@ -95,12 +95,12 @@ instance Arbitrary CueFile where
       <*> arbitrary
       <*> scaleDown (NE.fromList . getNonEmpty <$> arbitrary)
 
--- | Enumeration of audio or file's data types.
+-- | Enumeration of audio and data file types.
 data CueFileType
   = -- | Intel binary file (least significant byte first). Use for data
     -- files.
     Binary
-  | -- | Motorola binary file (most significant file first). Use for data
+  | -- | Motorola binary file (most significant byte first). Use for data
     -- files.
     Motorola
   | -- | Audio AIFF file (44.1 kHz, 16 bit stereo).
@@ -125,7 +125,7 @@ data CueTrack = CueTrack
     -- | Flag: serial copy management system (not supported by all
     -- recorders).
     cueTrackSerialCopyManagement :: !Bool,
-    -- | Type datatype.
+    -- | The track's type.
     cueTrackType :: !CueTrackType,
     -- | The track's International Standard Recording Code (ISRC).
     cueTrackIsrc :: !(Maybe Isrc),
@@ -197,7 +197,7 @@ instance Arbitrary CueTime where
   arbitrary = CueTime . fromInteger . getNonNegative <$> arbitrary
 
 -- | Construct 'CueTime' from minutes, seconds, and frames. There are 75
--- frames per second. If number of seconds or frames is invalid,
+-- frames per second. If the number of seconds or frames is invalid,
 -- 'InvalidSeconds' or 'InvalidFrames' will be thrown.
 fromMmSsFf ::
   (MonadThrow m) =>
@@ -224,7 +224,7 @@ toMmSsFf (CueTime ff') = (mm, ss, ff)
     (ss', ff) = ff' `quotRem` 75
     (mm, ss) = ss' `quotRem` 60
 
--- | Render representation of 'CueTime' in @mm:ss:ff@ format.
+-- | Render a representation of 'CueTime' in the @mm:ss:ff@ format.
 showMmSsFf :: CueTime -> Text
 showMmSsFf x = T.pack (printf "%02d:%02d:%02d" mm ss ff)
   where
@@ -339,7 +339,7 @@ isValidCueText x = l >= 1 && l <= 80 && T.all f x
     l = T.length x
     f c = c /= '\"' && c /= '\n'
 
--- | A variant of 'Data.Char.IsAlphaNum' that only permits ASCII letter
+-- | A variant of 'Data.Char.isAlphaNum' that only permits ASCII letter
 -- chars.
 isAlphaNum :: Char -> Bool
 isAlphaNum a = isAscii a && (isDigit a || isLetter a)

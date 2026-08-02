@@ -14,7 +14,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- The modules contains a CUE sheet parser. You probably want to import
+-- The module contains a CUE sheet parser. You probably want to import
 -- "Text.CueSheet" instead.
 module Text.CueSheet.Parser
   ( parseCueSheet,
@@ -46,8 +46,8 @@ import Text.Megaparsec.Byte.Lexer qualified as L
 ----------------------------------------------------------------------------
 -- Types
 
--- | Extended error component with support for storing number of track
--- declaration in which a parsing error has occurred.
+-- | Extended error component with support for storing the number of the
+-- track declaration in which a parsing error has occurred.
 data Eec = Eec (Maybe Natural) CueParserFailure
   deriving (Show, Eq, Ord, Data, Generic)
 
@@ -99,7 +99,7 @@ instance ShowErrorComponent CueParserFailure where
     CueParserTrackIndexOutOfOrder ->
       "this index appears out of order"
 
--- | Type of parser we use here, it's not public.
+-- | The type of parser we use here; it's not public.
 type Parser a = StateT Context (Parsec Eec ByteString) a
 
 -- | Context of parsing. This is passed around in 'StateT'. We need all of
@@ -125,11 +125,11 @@ data Context = Context
     contextIndexCount :: !Natural
   }
 
--- | Parse a CUE sheet from a lazy 'BL.ByteString'.
+-- | Parse a CUE sheet from a strict 'ByteString'.
 parseCueSheet ::
   -- | File name to include in error messages
   String ->
-  -- | CUE sheet to parse as a lazy 'BL.ByteString'
+  -- | CUE sheet to parse as a strict 'ByteString'
   ByteString ->
   -- | 'ParseError' or result
   Either (ParseErrorBundle ByteString Eec) CueSheet
@@ -527,9 +527,9 @@ failAtIf shouldFail command = do
     then empty
     else p
 
--- | Indicate that the inner parser belongs to declaration of a track with
--- the given index. The index of the track will be added to 'ParseError's to
--- help the user find where the error happened.
+-- | Indicate that the inner parser belongs to the declaration of a track
+-- with the given index. The index of the track will be added to
+-- 'ParseError's to help the user find where the error happened.
 inTrack :: Natural -> Parser a -> Parser a
 inTrack n = region f
   where
@@ -540,9 +540,9 @@ inTrack n = region f
     g (ErrorCustom (Eec mn x)) = ErrorCustom (Eec (mn <|> Just n) x)
     g e = e
 
--- | A labelled literal (a helper for common case).
+-- | A labelled literal (a helper for the common case).
 labelledLit ::
-  -- | Should we instantly fail when command is parsed?
+  -- | Should we instantly fail when the command is parsed?
   Bool ->
   -- | How to judge the result
   (ByteString -> Either CueParserFailure a) ->
@@ -586,7 +586,7 @@ sc = L.space (void $ takeWhile1P Nothing f) empty empty
   where
     f x = x == 32 || x == 9
 
--- | Determine by 'CueTrack' if we have already parsed FLAGS command.
+-- | Determine by 'CueTrack' if we have already parsed the FLAGS command.
 seenFlags :: CueTrack -> Bool
 seenFlags CueTrack {..} =
   or
@@ -596,7 +596,7 @@ seenFlags CueTrack {..} =
       cueTrackSerialCopyManagement
     ]
 
--- | Apply given function to the first element of the list.
+-- | Apply the given function to the first element of the list.
 changingFirstOf :: [a] -> (a -> a) -> [a]
 changingFirstOf [] _ = []
 changingFirstOf (x : xs) f = f x : xs

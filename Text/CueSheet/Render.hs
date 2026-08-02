@@ -11,7 +11,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- The module contains a CUE sheet render. You probably want to import
+-- The module contains a CUE sheet renderer. You probably want to import
 -- "Text.CueSheet" instead.
 module Text.CueSheet.Render
   ( renderCueSheet,

@@ -20,7 +20,7 @@ sheets.
 [Read more on Wikipedia](https://en.wikipedia.org/wiki/Cue_sheet_(computing)).
 The description of the format can be found
 [here](https://wayback.archive.org/web/20070614044112/http://www.goldenhawk.com/download/cdrwin.pdf),
-scroll to the appendix A (it's closest we get to a “specification”).
+scroll to appendix A (it's the closest we get to a “specification”).
 
 ## Contribution
 
@@ -33,4 +33,4 @@ Pull requests are also welcome.
 
 Copyright © 2016–present Mark Karpov
 
-Distributed under BSD 3 clause license.
+Distributed under the BSD 3-clause license.
